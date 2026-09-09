@@ -1,0 +1,7 @@
+node_modules/
+target/
+apps/web/dist/
+apps/web/src/generated/
+test-results/
+playwright-report/
+.verification/

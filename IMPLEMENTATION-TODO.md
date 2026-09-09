@@ -1,6 +1,6 @@
 # OS Laboratory — Agent Implementation Backlog
 
-Read OS-Laboratory-Spec.md first. Status: all tasks pending. Implement M0 then M1; later milestones are planned work requiring additional contracts. Task assignments below are recommendations, not automatic agent launches.
+Read OS-Laboratory-Spec.md first. Status: M0 started; T00 implemented and locally verified, remote CI/integration pending; all other tasks pending. See docs/tasks/T00.md and docs/HANDOFF.md for current execution state. Implement M0 then M1; later milestones are planned work requiring additional contracts. Task assignments below are recommendations, not automatic agent launches.
 
 ## Assignment and execution policy
 

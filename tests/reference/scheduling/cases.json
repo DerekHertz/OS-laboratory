@@ -1,0 +1,338 @@
+{
+  "fixtureFormat": "os-lab-scheduling-reference/v1-test-only",
+  "modelContract": "sched.m1/revision-1",
+  "intervalConvention": "half-open",
+  "cases": [
+    {
+      "id": "C01-simultaneous-fcfs-arrivals",
+      "policy": { "kind": "fcfs" },
+      "cores": 1,
+      "switchCost": 0,
+      "threads": [
+        { "id": "A", "arrival": 0, "program": [{ "compute": 2 }, "end"] },
+        { "id": "B", "arrival": 0, "program": [{ "compute": 1 }, "end"] },
+        { "id": "C", "arrival": 0, "program": [{ "compute": 1 }, "end"] }
+      ],
+      "finalTick": 4,
+      "coreLedgers": [
+        {
+          "core": 0,
+          "intervals": [
+            [0, 2, "useful", "A"],
+            [2, 3, "useful", "B"],
+            [3, 4, "useful", "C"]
+          ],
+          "totals": { "useful": 4, "overhead": 0, "idle": 0 }
+        }
+      ],
+      "threadMetrics": {
+        "A": {
+          "response": 0,
+          "turnaround": 2,
+          "readyWait": 0,
+          "dispatchOverhead": 0,
+          "blocked": 0,
+          "useful": 2
+        },
+        "B": {
+          "response": 2,
+          "turnaround": 3,
+          "readyWait": 2,
+          "dispatchOverhead": 0,
+          "blocked": 0,
+          "useful": 1
+        },
+        "C": {
+          "response": 3,
+          "turnaround": 4,
+          "readyWait": 3,
+          "dispatchOverhead": 0,
+          "blocked": 0,
+          "useful": 1
+        }
+      }
+    },
+    {
+      "id": "C02-rr-completion-equals-quantum",
+      "policy": { "kind": "roundRobin", "quantum": 2 },
+      "cores": 1,
+      "switchCost": 0,
+      "threads": [
+        { "id": "A", "arrival": 0, "program": [{ "compute": 2 }, "end"] },
+        { "id": "B", "arrival": 0, "program": [{ "compute": 1 }, "end"] }
+      ],
+      "finalTick": 3,
+      "coreLedgers": [
+        {
+          "core": 0,
+          "intervals": [
+            [0, 2, "useful", "A"],
+            [2, 3, "useful", "B"]
+          ],
+          "totals": { "useful": 3, "overhead": 0, "idle": 0 }
+        }
+      ],
+      "threadMetrics": {
+        "A": {
+          "response": 0,
+          "turnaround": 2,
+          "readyWait": 0,
+          "dispatchOverhead": 0,
+          "blocked": 0,
+          "useful": 2
+        },
+        "B": {
+          "response": 2,
+          "turnaround": 3,
+          "readyWait": 2,
+          "dispatchOverhead": 0,
+          "blocked": 0,
+          "useful": 1
+        }
+      },
+      "assertions": [
+        "A terminates in phase 1 at tick 2",
+        "A's phase-3 expiration is stale",
+        "A is not requeued"
+      ]
+    },
+    {
+      "id": "C03-nonzero-idle-dispatch-cost",
+      "policy": { "kind": "fcfs" },
+      "cores": 1,
+      "switchCost": 1,
+      "threads": [
+        { "id": "A", "arrival": 0, "program": [{ "compute": 2 }, "end"] },
+        { "id": "B", "arrival": 1, "program": [{ "compute": 1 }, "end"] }
+      ],
+      "finalTick": 5,
+      "coreLedgers": [
+        {
+          "core": 0,
+          "intervals": [
+            [0, 1, "overhead", "A"],
+            [1, 3, "useful", "A"],
+            [3, 4, "overhead", "B"],
+            [4, 5, "useful", "B"]
+          ],
+          "totals": { "useful": 3, "overhead": 2, "idle": 0 }
+        }
+      ],
+      "threadMetrics": {
+        "A": {
+          "response": 1,
+          "turnaround": 3,
+          "readyWait": 0,
+          "dispatchOverhead": 1,
+          "blocked": 0,
+          "useful": 2
+        },
+        "B": {
+          "response": 3,
+          "turnaround": 4,
+          "readyWait": 2,
+          "dispatchOverhead": 1,
+          "blocked": 0,
+          "useful": 1
+        }
+      }
+    },
+    {
+      "id": "C04-io-wakeup-before-rr-requeue",
+      "policy": { "kind": "roundRobin", "quantum": 2 },
+      "cores": 1,
+      "switchCost": 0,
+      "threads": [
+        {
+          "id": "A",
+          "arrival": 0,
+          "program": [
+            { "compute": 1 },
+            { "ioWait": 2 },
+            { "compute": 1 },
+            "end"
+          ]
+        },
+        { "id": "B", "arrival": 0, "program": [{ "compute": 4 }, "end"] }
+      ],
+      "finalTick": 6,
+      "coreLedgers": [
+        {
+          "core": 0,
+          "intervals": [
+            [0, 1, "useful", "A"],
+            [1, 3, "useful", "B"],
+            [3, 4, "useful", "A"],
+            [4, 6, "useful", "B"]
+          ],
+          "totals": { "useful": 6, "overhead": 0, "idle": 0 }
+        }
+      ],
+      "threadMetrics": {
+        "A": {
+          "response": 0,
+          "turnaround": 4,
+          "readyWait": 0,
+          "dispatchOverhead": 0,
+          "blocked": 2,
+          "useful": 2
+        },
+        "B": {
+          "response": 1,
+          "turnaround": 6,
+          "readyWait": 2,
+          "dispatchOverhead": 0,
+          "blocked": 0,
+          "useful": 4
+        }
+      },
+      "assertions": [
+        "At tick 3 A is appended in phase 2 before B in phase 3",
+        "The tick-3 ready order is A then B"
+      ]
+    },
+    {
+      "id": "C05-idle-cores-delayed-arrival",
+      "policy": { "kind": "fcfs" },
+      "cores": 2,
+      "switchCost": 1,
+      "threads": [
+        { "id": "A", "arrival": 2, "program": [{ "compute": 2 }, "end"] }
+      ],
+      "finalTick": 5,
+      "coreLedgers": [
+        {
+          "core": 0,
+          "intervals": [
+            [0, 2, "idle", null],
+            [2, 3, "overhead", "A"],
+            [3, 5, "useful", "A"]
+          ],
+          "totals": { "useful": 2, "overhead": 1, "idle": 2 }
+        },
+        {
+          "core": 1,
+          "intervals": [[0, 5, "idle", null]],
+          "totals": { "useful": 0, "overhead": 0, "idle": 5 }
+        }
+      ],
+      "threadMetrics": {
+        "A": {
+          "response": 1,
+          "turnaround": 3,
+          "readyWait": 0,
+          "dispatchOverhead": 1,
+          "blocked": 0,
+          "useful": 2
+        }
+      }
+    },
+    {
+      "id": "C06-stable-two-core-dispatch",
+      "policy": { "kind": "fcfs" },
+      "cores": 2,
+      "switchCost": 1,
+      "threads": [
+        { "id": "A", "arrival": 0, "program": [{ "compute": 2 }, "end"] },
+        { "id": "B", "arrival": 0, "program": [{ "compute": 2 }, "end"] },
+        { "id": "C", "arrival": 0, "program": [{ "compute": 2 }, "end"] }
+      ],
+      "finalTick": 6,
+      "coreLedgers": [
+        {
+          "core": 0,
+          "intervals": [
+            [0, 1, "overhead", "A"],
+            [1, 3, "useful", "A"],
+            [3, 4, "overhead", "C"],
+            [4, 6, "useful", "C"]
+          ],
+          "totals": { "useful": 4, "overhead": 2, "idle": 0 }
+        },
+        {
+          "core": 1,
+          "intervals": [
+            [0, 1, "overhead", "B"],
+            [1, 3, "useful", "B"],
+            [3, 6, "idle", null]
+          ],
+          "totals": { "useful": 2, "overhead": 1, "idle": 3 }
+        }
+      ],
+      "threadMetrics": {
+        "A": {
+          "response": 1,
+          "turnaround": 3,
+          "readyWait": 0,
+          "dispatchOverhead": 1,
+          "blocked": 0,
+          "useful": 2
+        },
+        "B": {
+          "response": 1,
+          "turnaround": 3,
+          "readyWait": 0,
+          "dispatchOverhead": 1,
+          "blocked": 0,
+          "useful": 2
+        },
+        "C": {
+          "response": 4,
+          "turnaround": 6,
+          "readyWait": 3,
+          "dispatchOverhead": 1,
+          "blocked": 0,
+          "useful": 2
+        }
+      },
+      "assertions": [
+        "Core 0 completes A before core 1 completes B",
+        "Core 0 dispatches C"
+      ]
+    },
+    {
+      "id": "C07-explicit-yield-to-tail",
+      "policy": { "kind": "fcfs" },
+      "cores": 1,
+      "switchCost": 0,
+      "threads": [
+        {
+          "id": "A",
+          "arrival": 0,
+          "program": [{ "compute": 1 }, "yield", { "compute": 1 }, "end"]
+        },
+        { "id": "B", "arrival": 0, "program": [{ "compute": 2 }, "end"] }
+      ],
+      "finalTick": 4,
+      "coreLedgers": [
+        {
+          "core": 0,
+          "intervals": [
+            [0, 1, "useful", "A"],
+            [1, 3, "useful", "B"],
+            [3, 4, "useful", "A"]
+          ],
+          "totals": { "useful": 4, "overhead": 0, "idle": 0 }
+        }
+      ],
+      "threadMetrics": {
+        "A": {
+          "response": 0,
+          "turnaround": 4,
+          "readyWait": 2,
+          "dispatchOverhead": 0,
+          "blocked": 0,
+          "useful": 2
+        },
+        "B": {
+          "response": 1,
+          "turnaround": 3,
+          "readyWait": 1,
+          "dispatchOverhead": 0,
+          "blocked": 0,
+          "useful": 2
+        }
+      }
+    }
+  ]
+}

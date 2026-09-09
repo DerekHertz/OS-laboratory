@@ -10,7 +10,7 @@ Source audit used OSTEP v1.10 chapter 7 §§7.1–7.3 and 7.6–7.8 for workload
 
 Next actions:
 
-1. Inspect and independently recompute T01's state/event rules and seven cases with a separate tier-A reviewer. Resolve any ambiguity or arithmetic finding and record the review.
+1. Start a fresh review chat and execute `docs/reviews/T01-REVIEW-PACKET.md`. Use its portable tier-A routing: currently GPT-5.6 Sol at `xhigh` for the economical first pass, escalating only disputed issues to GPT-6 Astra at `xhigh`. The reviewer writes only `docs/reviews/T01-REVIEW-RESULT.md`.
 2. After review, update the evidence, mark PR #2 ready, require protected remote CI on the final head, and integrate only if it passes.
 3. After T01 is accepted, expand and execute T02 program/transport contracts. T03 remains blocked on T00–T02; do not add kernel behavior early.
 

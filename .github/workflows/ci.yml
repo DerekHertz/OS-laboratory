@@ -14,5 +14,3 @@ jobs:
       - run: npm ci --include=optional
       - run: npx playwright install --with-deps chromium
       - run: npm run check
-
-

@@ -22,7 +22,7 @@ Upgrade dependencies in separate PRs. Record architectural decisions under docs/
 
 After integration, remove merged task branches and worktrees after verifying that their work is retained. Revert broken integrations through a new change; do not rewrite shared history.
 
-## Build procedure (verification pending)
+## Build procedure (verified locally for T00)
 
 Install Node 22.20.0 with npm 10.9.3, and Rust through rustup. On Windows, install Visual Studio C++ build tools and a Windows SDK; ensure cargo is on PATH in the terminal running npm. rust-toolchain.toml selects Rust 1.94.1, rustfmt, clippy and the wasm32-unknown-unknown target.
 

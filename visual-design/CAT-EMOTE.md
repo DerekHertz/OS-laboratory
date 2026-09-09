@@ -1,0 +1,9 @@
+# Cat emote extension
+
+Approved addition to the Pixel Circuit service bot. Concept: CRT whiskers and cat eyes, mint holographic ears, paw gestures. All three variants approved: Meow, Paw Paw, Cat Nap. Cosmetic only, available through the emote picker; cat nap does not pause execution or imply an OS sleep state. Preserve movement interruption and reduced-motion behavior from CHARACTER-EMOTES.md.
+
+Generated reference: C-cat-emote.png. Built-in image generation tool, using C-pixel-circuit.png as the character reference. Concept art, not production frames.
+
+## Exact prompt
+
+Create a charming pixel-art character reference board for the CAT EMOTE of the cream CRT service robot from the reference image. Reference is the robot identity and art style: preserve cream squared CRT head, dark screen, mint pixel face, compact cream body, short dark mechanical legs, orange utility backpack. New emote only: mint cat-shaped eyes, tiny mint triangle nose and pixel whiskers on screen, two small mint holographic triangular cat ears projected immediately above head, hands lifted like little paws. Do not replace robot with a biological cat. Keep original silhouette and proportions recognizable. A polished landscape board on midnight #141C2C with restrained blue #233149 rules. Title "PIXEL CIRCUIT / CAT EMOTE". Three spacious panels showing same bot: "MEOW" front pose with happy cat eyes and raised paw; "PAW PAW" three-quarter playful two-paw pose; "CAT NAP" seated bot with curled resting limbs and closed cat eyes, tiny mint z above head. Consistent deliberate crisp pixel clusters and nearest-neighbor art style, no blur or smooth 3D. Large readable poses and minimal text, cream #E5ECD8, mint #83D9B0, orange #EFA35D. This is a proposed cosmetic emote concept reference, not a production sprite sheet. No other characters, no app interface.

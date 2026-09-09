@@ -1,0 +1,33 @@
+{
+  "name": "os-laboratory",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "22.20.0",
+    "npm": "10.9.3"
+  },
+  "packageManager": "npm@10.9.3",
+  "scripts": {
+    "dev": "vite apps/web",
+    "build:wasm": "node scripts/build-wasm.mjs",
+    "build:web": "vite build apps/web",
+    "build": "npm run build:wasm && npm run build:web",
+    "typecheck": "tsc --noEmit",
+    "format:check": "prettier --check apps scripts tests package.json tsconfig.json playwright.config.ts",
+    "test:browser": "playwright test",
+    "check": "npm run format:check && npm run typecheck && cargo fmt --all -- --check && cargo clippy --workspace --all-targets --locked -- -D warnings && cargo test --workspace --locked && cargo build --workspace --release --locked && npm run build && npm run test:browser"
+  },
+  "dependencies": {
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
+    "prettier": "3.9.6",
+    "typescript": "5.9.3",
+    "vite": "8.2.2"
+  }
+}

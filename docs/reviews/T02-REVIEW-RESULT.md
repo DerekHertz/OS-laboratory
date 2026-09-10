@@ -282,3 +282,61 @@ git -c safe.directory=D:/codex/_projects/OS-laboratory diff --check
 **CHANGES REQUIRED**
 
 F1–F7 are resolved, but R1 remains significant under the original acceptance rule: authoritative snapshot/source state and the inspectable runtime-error boundary still admit incompatible outcomes. T03 must not start until R1 is corrected and independently re-reviewed.
+
+## Final re-review addendum — 2026-09-10
+
+Final review target: exact head `117f729ff82843d97868bf849a4e0b162baa798d` (`T02: preserve authoritative fatal inspection`). I reviewed the correction from `702b2e01f584a78c341cc02a2de16f32c0677bbd`, reran the R1 counterexamples unchanged, and re-audited F1–F7 and the original packet boundaries.
+
+### R1 disposition
+
+**Resolved.** The prose now defines `blockId` for every lifecycle state: first block before arrival, next/current block while ready/dispatching/running, the active I/O block while blocked, the executed `end` after termination, the offending block after error, and next/current block when censored. The schema makes `threadState.blockId` required, the TypeScript projection agrees, and `I18-running-snapshot-missing-authoritative-block` rejects the original blockless-running-snapshot counterexample.
+
+Terminal runtime errors now carry their authoritative final snapshot before retirement. The schema and TypeScript error union require a snapshot for every runtime error, require source identity for arithmetic/control-budget errors, and allow `internalEngine` to be either globally unattributed or attributed with both thread and block. Semantic validation requires a matching reply/snapshot sequence, snapshot status `error`, empty ready queue, idle cores, the attributed thread in `error` at the same block, every other unfinished thread in `censored`, and previously terminated threads unchanged. `V06` demonstrates the complete fatal boundary with a truncated trace; `I19-terminal-runtime-error-missing-source-and-final-state` rejects the original incomplete terminal error.
+
+Direct schema probes at exact head `117f729` produced:
+
+```text
+source-less terminal controlBudgetExceeded reply: rejected
+blockless authoritative running snapshot: rejected
+```
+
+Both probes returned validation errors at the newly required fields/unions. This closes the ambiguity between retirement, later inspection, and same-reply final-state delivery.
+
+### Regression audit
+
+- **F1 remains resolved:** malformed operand references reject cleanly without a missing-declaration dereference.
+- **F2 remains resolved:** canonical event identity rules remain closed by kind; the R1 correction additionally closes authoritative snapshot and terminal-error source identity.
+- **F3 remains resolved:** envelope/protocol/run routing and create-body compatibility precedence are unchanged and deterministic.
+- **F4 remains resolved:** application/schema/protocol/model/engine/random compatibility and pre-ledger versus ledger/runtime error metadata remain separate.
+- **F5 remains resolved:** stable snapshot ownership, ghost rejection, atomic ordered deltas, existing-identity updates, and final-state validation remain intact. Mandatory thread block IDs apply equally to full snapshots and `setThread` delta operations.
+- **F6 remains resolved:** `{ "mode": "full" }` is still an unconditional snapshot resynchronization path, distinct from delta inspection.
+- **F7 remains resolved:** checkpoint identity remains the immutable, non-reused `(runId, checkpointId)` tuple with exact compatibility and state-sequence bindings.
+
+The exact `u64/i64` formats, command/reply discriminants, repeat reachability and limits, machine namespaces, typed event payloads, causal/event ordering, and separate compatibility dimensions showed no regression. T03 has a defined outcome for every packet boundary reviewed here. Rust decoding/native-Wasm equivalence, stateful worker routing, and checkpoint-ledger non-reuse remain explicitly assigned verification work for T03/T07/T13 rather than unresolved T02 semantics.
+
+### Final structural checks
+
+All prescribed checks passed at exact head `117f729ff82843d97868bf849a4e0b162baa798d`:
+
+```text
+npm run contracts:check
+  PASS — 30 contract cases; generated overflow, version, random-algorithm,
+  size, depth, block-count, and sequence-gap controls rejected
+
+npm run typecheck
+  PASS
+
+npm run format:check
+  PASS
+
+git -c safe.directory=D:/codex/_projects/OS-laboratory diff --check
+  PASS
+```
+
+These finite checks are bounded evidence, supplemented by the direct counterexample probes above.
+
+### Final verdict
+
+**ACCEPT**
+
+All original significant findings F1–F7 and residual finding R1 are resolved with agreement across normative prose, schema, TypeScript projection, semantic validator, and fixtures. No blocking or significant finding remains within T02 scope. This verdict approves the fixed contract head for the orchestrator's integration process; it does not itself merge T02 or start T03.

@@ -1,6 +1,6 @@
 # M1 scheduling model contract
 
-Contract ID: `sched.m1`; revision: 1; status: author review pending independent tier-A review. This record defines the teaching model consumed by T02–T06. It is not a claim about a particular production OS scheduler.
+Contract ID: `sched.m1`; revision: 1; status: independently reviewed and accepted. This record defines the teaching model consumed by T02–T06. It is not a claim about a particular production OS scheduler.
 
 ## Learning objective and supported claims
 
@@ -42,7 +42,7 @@ The quantum counts useful CPU service only. Dispatch overhead, blocked time, and
 
 ## States, ownership, and transitions
 
-At every stable boundary a thread has exactly one lifecycle state and cannot be owned by more than one queue/core.
+At every stable boundary a thread has exactly one lifecycle state and cannot be owned by more than one queue/core. `error` and `censored` are terminal reporting states at a run-fatal boundary: the thread that caused an attributable execution error becomes `error`, while every other nonterminated thread becomes `censored`.
 
 | From                    | Cause                                             | To          | Required effect                                                                                                             |
 | ----------------------- | ------------------------------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------- |
@@ -55,9 +55,11 @@ At every stable boundary a thread has exactly one lifecycle state and cannot be 
 | blocked                 | I/O completion                                    | ready       | Append once to the ready tail.                                                                                              |
 | running                 | applicable RR quantum expiration                  | ready       | Release the core and append after phase-2 ready events at this tick.                                                        |
 | running                 | `end` after an instruction boundary               | terminated  | Release the core permanently.                                                                                               |
-| any nonterminated state | validated program/overflow/budget error           | error       | Stop according to the future run-error contract; never fabricate successful completion.                                     |
+| any nonterminated state | attributable runtime overflow/budget error        | error       | Stop the run at this tick under the run-fatal rules below; remove ownership and never fabricate successful completion.      |
 
-`dispatching` owns a core but is neither ready nor running. A blocked thread owns no core. Termination is legal only at an instruction boundary. Zero-time control instructions execute in program order under T03's bounded control-operation budget. If they reach another compute instruction, the thread remains running as described above; if they reach yield, I/O, end, or error, that transition occurs at the same tick.
+`dispatching` owns a core but is neither ready nor running. A blocked thread owns no core. Termination is legal only at an instruction boundary. Zero-time program operations execute in program order under the bounded control-operation budget below. If they reach another compute instruction, the thread remains running as described above; if they reach yield, I/O, end, or error, that transition occurs at the same tick.
+
+Runtime arithmetic overflow and control-budget exhaustion are run-fatal execution errors. At error tick `t`, stop before executing the failing operation or any later same-tick phase/dispatch work. When the error is attributable to a thread, that thread becomes `error`; every other thread that has not already terminated becomes `censored`. For a non-attributable engine error, every nonterminated thread becomes `censored`, while the run outcome itself records `error`. Threads terminated before the error boundary remain completed. Remove every thread from the ready queue, release every core, close active core and thread intervals at `t` (omitting zero-length intervals), invalidate every dispatch generation and pending completion/expiration token, and discard all pending arrival, I/O, switch, compute, and expiration events. No same-tick redispatch follows an error. Set `final_tick = t` and close the core ledgers over `[0,t)`. Completed counts and throughput include only threads terminated before the error; `error` and `censored` threads are unfinished and have censored turnaround. Pre-run validation rejection is not an execution error and produces no run ledger.
 
 ## Total event order and same-tick closure
 
@@ -74,11 +76,13 @@ Rules inside that order:
 2. Events created by cores at the same logical point are inserted in ascending core ID. Other equal-phase events retain their original insertion order. Host map/object iteration order is never semantic.
 3. Phase 1 processes a compute boundary before phase 3 evaluates its quantum token. If zero-time continuation ends, blocks, yields, or errors, the old expiration is stale. If the thread remains running and has exhausted its quantum, phase 3 expires it.
 4. Phase-2 arrivals and I/O completions append before phase-3 expired threads. Thus newly ready work precedes an expired thread at the same tick.
-5. In phase 4, idle cores are considered in ascending ID. Each takes at most one ready head. Continue until either no idle core or no ready thread remains.
+5. Phase 4 is a deterministic fixpoint of scheduling scans. In one scan, consider cores once in ascending ID; each core that is idle when considered removes at most one ready head. Finish the scan even if a zero-cost dispatch immediately releases an earlier core through yield, I/O, or end. If a ready/idle pair remains afterward, start another ascending-core scan at the same tick. Stop only when no ready/idle pair remains or the run enters the fatal error boundary. Thus a core may dispatch more than once in phase 4, but at most once per scan.
 6. Positive switch cost `s` reserves the core over `[t, t+s)` and schedules switch completion at `t+s`. It does not allow replacement by later arrivals. Cost zero changes dispatching to running immediately during phase 4 at tick `t`; the first positive-duration compute completion is scheduled for a later tick.
 7. A switch completion that reaches running at phase 1 may schedule a future useful completion/expiration but does not rerun an already passed same-tick phase. Zero-time program control is closed at that boundary before later phases.
 8. Generation tokens attach to compute completion and quantum expiration. A token is applicable only if thread, core, dispatch generation, and current instruction still match. Ignoring a stale token causes no queue or metric change.
-9. Dispatch runs after every phase-1/2/3 release at the tick. If no event exists but ready work and an idle core do, that state is invalid rather than silently waiting.
+9. Dispatch runs after every phase-1/2/3 release at the tick, and rule 5 closes every zero-time phase-4 release. A non-error stable boundary can therefore never contain both ready work and an idle core.
+
+The configured `control_operation_budget_per_tick` is one run-wide count, reset to zero only when processing advances to a different simulated tick. Every executed zero-time program operation consumes one unit, including repeat condition/iteration bookkeeping, yield, I/O submission, and end; dispatch itself does not. The count spans all threads, phases, and repeated phase-4 scans and is not reset by a thread or dispatch-generation change. If the next zero-time operation would exceed the positive configured limit, it is not executed: report budget exhaustion against that thread and source block and enter the run-fatal boundary above. This scope guarantees that zero-time redispatch cycles cannot prevent phase-4 closure indefinitely.
 
 ## Policy rules
 
@@ -92,14 +96,14 @@ Both policies use the same global FIFO queue. Queue position is never changed by
 
 For a completed thread:
 
-- response = first useful-compute start − arrival;
+- response = first useful-compute start − arrival, or absent when the thread never begins useful compute;
 - turnaround = termination − arrival;
 - ready wait = sum of ready intervals, ending when selected for dispatch (overhead is not ready wait);
 - dispatch overhead = sum of its dispatching interval durations;
 - blocked time = sum of blocked intervals;
 - useful time = sum of useful-compute intervals.
 
-For an unfinished thread, retain the accumulated components and report response only if it began useful work; turnaround is censored. For every completed thread with no unmodeled zero-time delay:
+The machine-readable representation of an absent response is JSON `null`, for both completed and unfinished threads. This is distinct from numeric zero: zero means useful compute began at arrival. For an unfinished `error` or `censored` thread, retain the accumulated components through `final_tick`, report response only if it began useful work, and represent censored turnaround as JSON `null`. For every completed thread with no unmodeled zero-time delay:
 
 `turnaround = ready_wait + dispatch_overhead + blocked_time + useful_time`.
 

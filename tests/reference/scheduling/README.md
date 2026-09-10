@@ -1,6 +1,6 @@
 # Independently worked M1 scheduling cases
 
-These cases were calculated from `sched.m1` before the event kernel or policies exist. Intervals are half-open. Thread metrics are ordered as response, turnaround, ready wait, dispatch overhead, blocked time, useful time. They are normative semantic expectations; `cases.json` is a test-only encoding pending T02.
+These cases were calculated from `sched.m1` before the event kernel or policies exist. Intervals are half-open. Thread metrics are ordered as response, turnaround, ready wait, dispatch overhead, blocked time, useful time. `null` means the metric is absent or censored, never numeric zero. They are normative semantic expectations; `cases.json` is a test-only encoding pending T02.
 
 ## C01 — simultaneous FCFS arrivals
 
@@ -81,6 +81,39 @@ One core, FCFS, switch cost 0. At tick 0, A (`compute 1; yield; compute 1; end`)
 
 FCFS is nonpreemptive, but explicit yield relinquishes its possession.
 
+## C08 — zero-cost immediate end reaches a phase-4 fixpoint
+
+One core, FCFS, switch cost 0. A (`end`) then B (`compute 1; end`) arrive at tick 0.
+
+- Tick 0 phase 2 appends A then B. Phase-4 scan 1 dispatches A, whose zero-time `end` terminates it and releases core 0 at tick 0.
+- Because B and an idle core remain, phase-4 scan 2 dispatches B at the same tick. B uses `[0,1)` and terminates at 1.
+- A = `(null,0,0,0,0,0)`, completed; B = `(0,1,0,0,0,1)`, completed.
+- Core 0 over `[0,1)`: useful 1, overhead 0, idle 0. Completed throughput is `2/1 = 2` threads per tick.
+
+The independently selected fixpoint has no invented idle tick: every scan is ascending-core, and a core takes at most one head per scan.
+
+## C09 — control-budget error is run-fatal with other work present
+
+One core, FCFS, switch cost 0, and a run-wide control-operation budget of 3 per tick. At tick 0, A is declared first with an empty-body bounded repeat whose repeat block would require four zero-time iteration evaluations before `end`; B (`compute 1; end`) is declared second.
+
+- Tick 0 phase 2 appends A then B. Phase 4 dispatches A and successfully performs three repeat evaluations at source block `A-loop`.
+- The fourth evaluation would exceed the budget, so it is not executed. The run enters its fatal error boundary at tick 0 before B can dispatch.
+- A is `error` with `(null,null,0,0,0,0)`; B is `censored` with `(null,null,0,0,0,0)`. Neither thread completed.
+- `final_tick` is 0. Core 0 has no nonempty interval and totals useful 0, overhead 0, idle 0 over `[0,0)`. Utilization and completed throughput are undefined (`null`). All pending events and generations are invalidated.
+
+The expected stop is derived from the configured limit: three operations are permitted, while operation four is the first disallowed operation.
+
+## C10 — completed program with no useful compute
+
+One core, FCFS, switch cost 0. A arrives at tick 0 with `io_wait 1; end`.
+
+- Phase 4 dispatches A at tick 0; it submits I/O without useful service and is blocked on `[0,1)`. Core 0 is idle on `[0,1)`.
+- At tick 1 phase 2, A wakes. Phase 4 dispatches it, and `end` terminates it at the same tick.
+- A = `(null,1,0,0,1,0)`, completed. Response is absent because no useful-compute interval began; it is not inferred from dispatch.
+- Core 0 over `[0,1)`: useful 0, overhead 0, idle 1. Completed throughput is `1/1 = 1` thread per tick.
+
+This preserves valid no-compute programs while giving their response metric one representation.
+
 ## Cross-case checks
 
-For every completed thread, the six component ledger satisfies `turnaround = ready + overhead + blocked + useful`. For every core, `useful + overhead + idle = final_tick`. The JSON repeats these values explicitly so tests can report which independently derived expectation diverged.
+For every completed thread, the six component ledger satisfies `turnaround = ready + overhead + blocked + useful`, whether response is numeric or absent. For every core, `useful + overhead + idle = final_tick`. Error/censored threads retain component totals but have censored (`null`) turnaround. The JSON repeats these values explicitly so tests can report which independently derived expectation diverged. C01–C07 are unchanged; C08–C10 add explicit status/outcome fields only where the corrected semantics require them.

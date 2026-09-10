@@ -333,6 +333,168 @@
           "useful": 2
         }
       }
+    },
+    {
+      "id": "C08-zero-cost-immediate-end-fixpoint",
+      "policy": { "kind": "fcfs" },
+      "cores": 1,
+      "switchCost": 0,
+      "threads": [
+        { "id": "A", "arrival": 0, "program": ["end"] },
+        { "id": "B", "arrival": 0, "program": [{ "compute": 1 }, "end"] }
+      ],
+      "finalTick": 1,
+      "runOutcome": {
+        "status": "completed",
+        "completedThreads": 2,
+        "erroredThreads": 0,
+        "censoredThreads": 0,
+        "completedThroughput": 2
+      },
+      "coreLedgers": [
+        {
+          "core": 0,
+          "intervals": [[0, 1, "useful", "B"]],
+          "totals": { "useful": 1, "overhead": 0, "idle": 0 },
+          "utilization": { "useful": 1, "overhead": 0, "idle": 0 }
+        }
+      ],
+      "threadMetrics": {
+        "A": {
+          "status": "completed",
+          "response": null,
+          "turnaround": 0,
+          "readyWait": 0,
+          "dispatchOverhead": 0,
+          "blocked": 0,
+          "useful": 0
+        },
+        "B": {
+          "status": "completed",
+          "response": 0,
+          "turnaround": 1,
+          "readyWait": 0,
+          "dispatchOverhead": 0,
+          "blocked": 0,
+          "useful": 1
+        }
+      },
+      "assertions": [
+        "Phase-4 scan 1 dispatches and terminates A at tick 0",
+        "Phase-4 scan 2 dispatches B at tick 0",
+        "A has absent response despite completed status"
+      ]
+    },
+    {
+      "id": "C09-control-budget-run-fatal",
+      "policy": { "kind": "fcfs" },
+      "cores": 1,
+      "switchCost": 0,
+      "controlOperationBudgetPerTick": 3,
+      "threads": [
+        {
+          "id": "A",
+          "arrival": 0,
+          "program": [
+            {
+              "repeat": { "count": 4, "body": [] },
+              "blockId": "A-loop"
+            },
+            "end"
+          ]
+        },
+        { "id": "B", "arrival": 0, "program": [{ "compute": 1 }, "end"] }
+      ],
+      "finalTick": 0,
+      "runOutcome": {
+        "status": "error",
+        "errorKind": "controlOperationBudgetExceeded",
+        "threadId": "A",
+        "blockId": "A-loop",
+        "completedThreads": 0,
+        "erroredThreads": 1,
+        "censoredThreads": 1,
+        "completedThroughput": null
+      },
+      "coreLedgers": [
+        {
+          "core": 0,
+          "intervals": [],
+          "totals": { "useful": 0, "overhead": 0, "idle": 0 },
+          "utilization": null
+        }
+      ],
+      "threadMetrics": {
+        "A": {
+          "status": "error",
+          "response": null,
+          "turnaround": null,
+          "readyWait": 0,
+          "dispatchOverhead": 0,
+          "blocked": 0,
+          "useful": 0
+        },
+        "B": {
+          "status": "censored",
+          "response": null,
+          "turnaround": null,
+          "readyWait": 0,
+          "dispatchOverhead": 0,
+          "blocked": 0,
+          "useful": 0
+        }
+      },
+      "assertions": [
+        "Three zero-time repeat evaluations execute at tick 0",
+        "The fourth repeat evaluation does not execute",
+        "The run fails before B dispatches",
+        "Pending events and generation tokens are invalidated"
+      ]
+    },
+    {
+      "id": "C10-completed-no-compute",
+      "policy": { "kind": "fcfs" },
+      "cores": 1,
+      "switchCost": 0,
+      "threads": [
+        {
+          "id": "A",
+          "arrival": 0,
+          "program": [{ "ioWait": 1 }, "end"]
+        }
+      ],
+      "finalTick": 1,
+      "runOutcome": {
+        "status": "completed",
+        "completedThreads": 1,
+        "erroredThreads": 0,
+        "censoredThreads": 0,
+        "completedThroughput": 1
+      },
+      "coreLedgers": [
+        {
+          "core": 0,
+          "intervals": [[0, 1, "idle", null]],
+          "totals": { "useful": 0, "overhead": 0, "idle": 1 },
+          "utilization": { "useful": 0, "overhead": 0, "idle": 1 }
+        }
+      ],
+      "threadMetrics": {
+        "A": {
+          "status": "completed",
+          "response": null,
+          "turnaround": 1,
+          "readyWait": 0,
+          "dispatchOverhead": 0,
+          "blocked": 1,
+          "useful": 0
+        }
+      },
+      "assertions": [
+        "A is blocked on [0,1)",
+        "A completes at tick 1 without useful compute",
+        "A's response is absent rather than zero"
+      ]
     }
   ]
 }

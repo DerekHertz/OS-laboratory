@@ -1,0 +1,497 @@
+{
+  "fixtureFormat": "os-lab-contract-cases/1",
+  "cases": [
+    {
+      "id": "V01-program-all-m1-operations",
+      "target": "program",
+      "valid": true,
+      "value": {
+        "schemaVersion": "os-lab-program/1",
+        "programId": "program.demo",
+        "name": "Compute and I/O demo",
+        "parameters": [
+          { "id": "cpuTicks", "minimum": "1", "default": "2", "maximum": "20" }
+        ],
+        "blocks": [
+          {
+            "blockId": "b.compute",
+            "op": "compute",
+            "duration": { "parameter": "cpuTicks" }
+          },
+          { "blockId": "b.yield", "op": "yield" },
+          {
+            "blockId": "b.repeat",
+            "op": "repeat",
+            "count": { "literal": "2" },
+            "body": [
+              {
+                "blockId": "b.io",
+                "op": "ioWait",
+                "duration": { "literal": "1" }
+              }
+            ]
+          },
+          { "blockId": "b.end", "op": "end" }
+        ]
+      }
+    },
+    {
+      "id": "V02-workload-preserves-u64",
+      "target": "workload",
+      "valid": true,
+      "value": {
+        "schemaVersion": "os-lab-workload/1",
+        "applicationVersion": "app.0.1.0",
+        "modelVersion": "sched.m1/revision-1",
+        "engineVersion": "sim-engine.0.1.0",
+        "randomAlgorithmVersion": "none.v1",
+        "seed": "0",
+        "machine": {
+          "machineId": "machine.main",
+          "cores": 2,
+          "switchCost": "0",
+          "controlOperationBudgetPerTick": "18446744073709551615"
+        },
+        "policy": { "kind": "roundRobin", "quantum": "3" },
+        "programs": [
+          {
+            "schemaVersion": "os-lab-program/1",
+            "programId": "program.max-arrival",
+            "name": "Large tick workload",
+            "parameters": [],
+            "blocks": [
+              {
+                "blockId": "max.compute",
+                "op": "compute",
+                "duration": { "literal": "1" }
+              },
+              { "blockId": "max.end", "op": "end" }
+            ]
+          }
+        ],
+        "threads": [
+          {
+            "threadId": "machine.main:thread.max",
+            "programId": "program.max-arrival",
+            "arrival": "18446744073709551615",
+            "parameters": {}
+          }
+        ]
+      }
+    },
+    {
+      "id": "V03-create-command",
+      "target": "command",
+      "valid": true,
+      "value": {
+        "protocolVersion": "os-lab-protocol/1",
+        "requestId": "request.create.1",
+        "runId": "run.1",
+        "kind": "create",
+        "payload": {
+          "traceMode": "inspection",
+          "workload": {
+            "schemaVersion": "os-lab-workload/1",
+            "applicationVersion": "app.0.1.0",
+            "modelVersion": "sched.m1/revision-1",
+            "engineVersion": "sim-engine.0.1.0",
+            "randomAlgorithmVersion": "none.v1",
+            "seed": "42",
+            "machine": {
+              "machineId": "machine.main",
+              "cores": 1,
+              "switchCost": "1",
+              "controlOperationBudgetPerTick": "1000"
+            },
+            "policy": { "kind": "fcfs" },
+            "programs": [
+              {
+                "schemaVersion": "os-lab-program/1",
+                "programId": "program.one",
+                "name": "One tick",
+                "parameters": [],
+                "blocks": [
+                  {
+                    "blockId": "one.compute",
+                    "op": "compute",
+                    "duration": { "literal": "1" }
+                  },
+                  { "blockId": "one.end", "op": "end" }
+                ]
+              }
+            ],
+            "threads": [
+              {
+                "threadId": "machine.main:thread.one",
+                "programId": "program.one",
+                "arrival": "0",
+                "parameters": {}
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "V04-thread-advance-command",
+      "target": "command",
+      "valid": true,
+      "value": {
+        "protocolVersion": "os-lab-protocol/1",
+        "requestId": "request.advance.1",
+        "runId": "run.1",
+        "kind": "advance",
+        "payload": {
+          "mode": "threadInstruction",
+          "threadId": "machine.main:thread.one"
+        }
+      }
+    },
+    {
+      "id": "V05-state-delta-reply",
+      "target": "reply",
+      "valid": true,
+      "value": {
+        "protocolVersion": "os-lab-protocol/1",
+        "requestId": "request.start.1",
+        "runId": "run.1",
+        "sequence": "9007199254740993",
+        "kind": "state",
+        "payload": {
+          "delta": {
+            "baseSequence": "9007199254740992",
+            "sequence": "9007199254740993",
+            "operations": [
+              {
+                "op": "replaceRun",
+                "status": "running",
+                "tick": "18446744073709551615"
+              },
+              {
+                "op": "replaceReadyQueue",
+                "threadIds": ["machine.main:thread.one"]
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "V06-error-reply-with-source",
+      "target": "reply",
+      "valid": true,
+      "value": {
+        "protocolVersion": "os-lab-protocol/1",
+        "requestId": "request.start.2",
+        "runId": "run.2",
+        "sequence": "7",
+        "kind": "error",
+        "payload": {
+          "code": "controlBudgetExceeded",
+          "message": "Control-operation budget exceeded.",
+          "terminal": true,
+          "threadId": "thread.loop",
+          "blockId": "block.repeat"
+        }
+      }
+    },
+    {
+      "id": "V07-snapshot-with-typed-event",
+      "target": "reply",
+      "valid": true,
+      "value": {
+        "protocolVersion": "os-lab-protocol/1",
+        "requestId": "request.inspect.1",
+        "runId": "run.1",
+        "sequence": "1",
+        "kind": "state",
+        "payload": {
+          "snapshot": {
+            "machineId": "machine.main",
+            "sequence": "1",
+            "tick": "0",
+            "status": "running",
+            "readyQueue": ["machine.main:thread.one"],
+            "threads": [
+              { "threadId": "machine.main:thread.one", "status": "ready" }
+            ],
+            "cores": [{ "coreId": 0, "state": "idle" }],
+            "events": [
+              {
+                "eventId": "machine.main:event.1",
+                "eventSequence": "1",
+                "tick": "0",
+                "kind": "arrival",
+                "entityIds": ["machine.main:thread.one"],
+                "threadId": "machine.main:thread.one",
+                "causalParentIds": [],
+                "payload": { "declarationIndex": 0 }
+              }
+            ],
+            "trace": {
+              "truncated": false,
+              "firstEventId": "machine.main:event.1",
+              "lastEventId": "machine.main:event.1"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "V08-checkpoint-result",
+      "target": "reply",
+      "valid": true,
+      "value": {
+        "protocolVersion": "os-lab-protocol/1",
+        "requestId": "request.checkpoint.1",
+        "runId": "run.1",
+        "sequence": "9",
+        "kind": "checkpoint",
+        "payload": { "checkpointId": "checkpoint.1", "tick": "7" }
+      }
+    },
+    {
+      "id": "V09-unsupported-protocol-error-uses-supported-envelope",
+      "target": "reply",
+      "valid": true,
+      "value": {
+        "protocolVersion": "os-lab-protocol/1",
+        "requestId": "request.bad-version",
+        "runId": "run.1",
+        "sequence": "0",
+        "kind": "error",
+        "payload": {
+          "code": "unsupportedProtocol",
+          "message": "Unsupported protocol version.",
+          "terminal": false,
+          "receivedProtocolVersion": "os-lab-protocol/2"
+        }
+      }
+    },
+    {
+      "id": "I01-unknown-program-schema",
+      "target": "program",
+      "valid": false,
+      "value": {
+        "schemaVersion": "os-lab-program/2",
+        "programId": "program.bad",
+        "name": "Bad version",
+        "parameters": [],
+        "blocks": [{ "blockId": "bad.end", "op": "end" }]
+      }
+    },
+    {
+      "id": "I02-numeric-tick-loses-contract",
+      "target": "command",
+      "valid": false,
+      "value": {
+        "protocolVersion": "os-lab-protocol/1",
+        "requestId": "request.inspect.bad",
+        "runId": "run.1",
+        "kind": "inspect",
+        "payload": { "afterSequence": 9007199254740993 }
+      }
+    },
+    {
+      "id": "I03-u64-overflow",
+      "target": "command",
+      "valid": false,
+      "value": {
+        "protocolVersion": "os-lab-protocol/1",
+        "requestId": "request.inspect.overflow",
+        "runId": "run.1",
+        "kind": "inspect",
+        "payload": { "afterSequence": "18446744073709551616" }
+      }
+    },
+    {
+      "id": "I04-duplicate-block-id",
+      "target": "program",
+      "valid": false,
+      "value": {
+        "schemaVersion": "os-lab-program/1",
+        "programId": "program.duplicate",
+        "name": "Duplicate block",
+        "parameters": [],
+        "blocks": [
+          { "blockId": "same", "op": "yield" },
+          { "blockId": "same", "op": "end" }
+        ]
+      }
+    },
+    {
+      "id": "I05-parameter-default-outside-range",
+      "target": "program",
+      "valid": false,
+      "value": {
+        "schemaVersion": "os-lab-program/1",
+        "programId": "program.range",
+        "name": "Bad range",
+        "parameters": [
+          { "id": "ticks", "minimum": "1", "default": "11", "maximum": "10" }
+        ],
+        "blocks": [{ "blockId": "range.end", "op": "end" }]
+      }
+    },
+    {
+      "id": "I06-missing-end",
+      "target": "program",
+      "valid": false,
+      "value": {
+        "schemaVersion": "os-lab-program/1",
+        "programId": "program.no-end",
+        "name": "Missing end",
+        "parameters": [],
+        "blocks": [{ "blockId": "only.yield", "op": "yield" }]
+      }
+    },
+    {
+      "id": "I07-unknown-thread-program",
+      "target": "workload",
+      "valid": false,
+      "value": {
+        "schemaVersion": "os-lab-workload/1",
+        "applicationVersion": "app.0.1.0",
+        "modelVersion": "sched.m1/revision-1",
+        "engineVersion": "sim-engine.0.1.0",
+        "randomAlgorithmVersion": "none.v1",
+        "seed": "0",
+        "machine": {
+          "machineId": "machine.main",
+          "cores": 1,
+          "switchCost": "0",
+          "controlOperationBudgetPerTick": "100"
+        },
+        "policy": { "kind": "fcfs" },
+        "programs": [
+          {
+            "schemaVersion": "os-lab-program/1",
+            "programId": "program.present",
+            "name": "Present",
+            "parameters": [],
+            "blocks": [{ "blockId": "present.end", "op": "end" }]
+          }
+        ],
+        "threads": [
+          {
+            "threadId": "machine.main:thread.bad",
+            "programId": "program.missing",
+            "arrival": "0",
+            "parameters": {}
+          }
+        ]
+      }
+    },
+    {
+      "id": "I08-unsupported-protocol",
+      "target": "command",
+      "valid": false,
+      "value": {
+        "protocolVersion": "os-lab-protocol/2",
+        "requestId": "request.bad-version",
+        "runId": "run.1",
+        "kind": "start",
+        "payload": {}
+      }
+    },
+    {
+      "id": "I09-ambiguous-advance-payload",
+      "target": "command",
+      "valid": false,
+      "value": {
+        "protocolVersion": "os-lab-protocol/1",
+        "requestId": "request.bad-advance",
+        "runId": "run.1",
+        "kind": "advance",
+        "payload": { "mode": "globalEvent", "threadId": "thread.one" }
+      }
+    },
+    {
+      "id": "I10-unknown-delta-operation",
+      "target": "reply",
+      "valid": false,
+      "value": {
+        "protocolVersion": "os-lab-protocol/1",
+        "requestId": "request.state.bad",
+        "runId": "run.1",
+        "sequence": "2",
+        "kind": "state",
+        "payload": {
+          "delta": {
+            "baseSequence": "1",
+            "sequence": "2",
+            "operations": [{ "op": "mergeMystery", "value": true }]
+          }
+        }
+      }
+    },
+    {
+      "id": "I11-wrong-event-payload-for-kind",
+      "target": "reply",
+      "valid": false,
+      "value": {
+        "protocolVersion": "os-lab-protocol/1",
+        "requestId": "request.inspect.bad-event",
+        "runId": "run.1",
+        "sequence": "1",
+        "kind": "state",
+        "payload": {
+          "snapshot": {
+            "machineId": "machine.main",
+            "sequence": "1",
+            "tick": "0",
+            "status": "running",
+            "readyQueue": [],
+            "threads": [],
+            "cores": [{ "coreId": 0, "state": "idle" }],
+            "events": [
+              {
+                "eventId": "machine.main:event.bad",
+                "eventSequence": "1",
+                "tick": "0",
+                "kind": "arrival",
+                "entityIds": ["machine.main:thread.one"],
+                "causalParentIds": [],
+                "payload": {}
+              }
+            ],
+            "trace": { "truncated": false }
+          }
+        }
+      }
+    },
+    {
+      "id": "I12-snapshot-breaks-core-ownership",
+      "target": "reply",
+      "valid": false,
+      "value": {
+        "protocolVersion": "os-lab-protocol/1",
+        "requestId": "request.inspect.bad-owner",
+        "runId": "run.1",
+        "sequence": "1",
+        "kind": "state",
+        "payload": {
+          "snapshot": {
+            "machineId": "machine.main",
+            "sequence": "1",
+            "tick": "0",
+            "status": "running",
+            "readyQueue": [],
+            "threads": [
+              { "threadId": "machine.main:thread.one", "status": "running" }
+            ],
+            "cores": [
+              {
+                "coreId": 0,
+                "state": "running",
+                "threadId": "machine.main:thread.one"
+              }
+            ],
+            "events": [],
+            "trace": { "truncated": false }
+          }
+        }
+      }
+    }
+  ]
+}

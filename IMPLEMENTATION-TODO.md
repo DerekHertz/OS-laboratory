@@ -1,6 +1,6 @@
 # OS Laboratory — Agent Implementation Backlog
 
-Read OS-Laboratory-Spec.md first. Status: M0 started; T00 integrated; T01 contract authoring in progress; all other tasks pending. See docs/tasks/, docs/verification/, and docs/HANDOFF.md for current execution state. Implement M0 then M1; later milestones are planned work requiring additional contracts. Task assignments below are recommendations, not automatic agent launches.
+Read OS-Laboratory-Spec.md first. Status: M0 started; T00 and T01 integrated; T02 contract authoring in progress; all other tasks pending. See docs/tasks/, docs/verification/, and docs/HANDOFF.md for current execution state. Implement M0 then M1; later milestones are planned work requiring additional contracts. Task assignments below are recommendations, not automatic agent launches.
 
 ## Assignment and execution policy
 

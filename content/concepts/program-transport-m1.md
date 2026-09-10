@@ -1,6 +1,6 @@
 # M1 program and transport contract
 
-Contract ID: `program-transport.m1`; revision: 1; status: authoring. This contract encodes `sched.m1/revision-1` for worker and persistence boundaries without adding simulation semantics.
+Contract ID: `program-transport.m1`; revision: 1; status: accepted for integration. This contract encodes `sched.m1/revision-1` for worker and persistence boundaries without adding simulation semantics.
 
 ## Version and compatibility boundary
 

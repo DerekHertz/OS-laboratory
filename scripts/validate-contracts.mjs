@@ -220,6 +220,45 @@ function validateReply(reply) {
     ) {
       errors.push("runtime error metadata is invalid");
     }
+    if (runtimeCodes.has(reply.payload.code)) {
+      const finalSnapshot = reply.payload.snapshot;
+      if (finalSnapshot?.status !== "error") {
+        errors.push("runtime error lacks final error snapshot");
+      } else {
+        if (finalSnapshot.readyQueue.length !== 0) {
+          errors.push("runtime error final snapshot has ready work");
+        }
+        if (finalSnapshot.cores.some((core) => core.state !== "idle")) {
+          errors.push("runtime error final snapshot has a busy core");
+        }
+        const attributed = reply.payload.threadId !== undefined;
+        for (const thread of finalSnapshot.threads) {
+          if (attributed && thread.threadId === reply.payload.threadId) {
+            if (
+              thread.status !== "error" ||
+              thread.blockId !== reply.payload.blockId
+            ) {
+              errors.push("runtime error source disagrees with final snapshot");
+            }
+          } else if (
+            thread.status !== "terminated" &&
+            thread.status !== "censored"
+          ) {
+            errors.push(`runtime error leaves live thread ${thread.threadId}`);
+          }
+        }
+        if (
+          attributed &&
+          !finalSnapshot.threads.some(
+            (thread) => thread.threadId === reply.payload.threadId,
+          )
+        ) {
+          errors.push(
+            "runtime error source thread is absent from final snapshot",
+          );
+        }
+      }
+    }
     if (
       reply.payload.code === "unsupportedProtocol" &&
       (reply.sequence !== "0" || !reply.payload.receivedProtocolVersion)

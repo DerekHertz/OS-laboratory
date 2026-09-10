@@ -222,8 +222,46 @@
           "code": "controlBudgetExceeded",
           "message": "Control-operation budget exceeded.",
           "terminal": true,
-          "threadId": "thread.loop",
-          "blockId": "block.repeat"
+          "threadId": "machine.main:thread.loop",
+          "blockId": "block.repeat",
+          "snapshot": {
+            "machineId": "machine.main",
+            "sequence": "7",
+            "tick": "4",
+            "status": "error",
+            "readyQueue": [],
+            "threads": [
+              {
+                "threadId": "machine.main:thread.loop",
+                "status": "error",
+                "blockId": "block.repeat"
+              },
+              {
+                "threadId": "machine.main:thread.other",
+                "status": "censored",
+                "blockId": "block.compute"
+              }
+            ],
+            "cores": [{ "coreId": 0, "state": "idle" }],
+            "events": [
+              {
+                "eventId": "machine.main:event.7",
+                "eventSequence": "7",
+                "tick": "4",
+                "kind": "runtimeError",
+                "entityIds": ["machine.main:thread.loop"],
+                "threadId": "machine.main:thread.loop",
+                "blockId": "block.repeat",
+                "causalParentIds": ["machine.main:event.6"],
+                "payload": { "code": "controlBudgetExceeded" }
+              }
+            ],
+            "trace": {
+              "truncated": true,
+              "firstEventId": "machine.main:event.7",
+              "lastEventId": "machine.main:event.7"
+            }
+          }
         }
       }
     },
@@ -767,6 +805,60 @@
               }
             ]
           }
+        }
+      }
+    },
+    {
+      "id": "I18-running-snapshot-missing-authoritative-block",
+      "target": "reply",
+      "valid": false,
+      "value": {
+        "protocolVersion": "os-lab-protocol/1",
+        "requestId": "request.inspect.blockless",
+        "runId": "run.1",
+        "sequence": "1",
+        "kind": "state",
+        "payload": {
+          "snapshot": {
+            "machineId": "machine.main",
+            "sequence": "1",
+            "tick": "1",
+            "status": "running",
+            "readyQueue": [],
+            "threads": [
+              {
+                "threadId": "machine.main:thread.one",
+                "status": "running",
+                "coreId": 0
+              }
+            ],
+            "cores": [
+              {
+                "coreId": 0,
+                "state": "running",
+                "threadId": "machine.main:thread.one"
+              }
+            ],
+            "events": [],
+            "trace": { "truncated": false }
+          }
+        }
+      }
+    },
+    {
+      "id": "I19-terminal-runtime-error-missing-source-and-final-state",
+      "target": "reply",
+      "valid": false,
+      "value": {
+        "protocolVersion": "os-lab-protocol/1",
+        "requestId": "request.error.blockless",
+        "runId": "run.1",
+        "sequence": "5",
+        "kind": "error",
+        "payload": {
+          "code": "controlBudgetExceeded",
+          "message": "Control-operation budget exceeded.",
+          "terminal": true
         }
       }
     }

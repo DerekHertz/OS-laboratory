@@ -403,7 +403,7 @@
         "coreId": { "type": "integer", "minimum": 0, "maximum": 63 },
         "blockId": { "$ref": "#/$defs/id" }
       },
-      "required": ["threadId", "status"],
+      "required": ["threadId", "status", "blockId"],
       "additionalProperties": false
     },
     "coreState": {
@@ -1134,9 +1134,128 @@
                     "terminal": { "type": "boolean" },
                     "receivedProtocolVersion": { "$ref": "#/$defs/text128" },
                     "threadId": { "$ref": "#/$defs/id" },
-                    "blockId": { "$ref": "#/$defs/id" }
+                    "blockId": { "$ref": "#/$defs/id" },
+                    "snapshot": { "$ref": "#/$defs/snapshot" }
                   },
                   "required": ["code", "message", "terminal"],
+                  "allOf": [
+                    {
+                      "if": {
+                        "type": "object",
+                        "properties": {
+                          "code": {
+                            "enum": [
+                              "arithmeticOverflow",
+                              "controlBudgetExceeded",
+                              "internalEngine"
+                            ]
+                          }
+                        },
+                        "required": ["code"]
+                      },
+                      "then": {
+                        "type": "object",
+                        "properties": {
+                          "terminal": { "const": true },
+                          "snapshot": { "$ref": "#/$defs/snapshot" }
+                        },
+                        "required": ["terminal", "snapshot"]
+                      },
+                      "else": {
+                        "type": "object",
+                        "properties": { "terminal": { "const": false } },
+                        "required": ["terminal"],
+                        "not": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "snapshot": { "$ref": "#/$defs/snapshot" }
+                              },
+                              "required": ["snapshot"]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "threadId": { "$ref": "#/$defs/id" }
+                              },
+                              "required": ["threadId"]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "blockId": { "$ref": "#/$defs/id" }
+                              },
+                              "required": ["blockId"]
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "type": "object",
+                        "properties": {
+                          "code": {
+                            "enum": [
+                              "arithmeticOverflow",
+                              "controlBudgetExceeded"
+                            ]
+                          }
+                        },
+                        "required": ["code"]
+                      },
+                      "then": {
+                        "type": "object",
+                        "properties": {
+                          "threadId": { "$ref": "#/$defs/id" },
+                          "blockId": { "$ref": "#/$defs/id" }
+                        },
+                        "required": ["threadId", "blockId"]
+                      }
+                    },
+                    {
+                      "if": {
+                        "type": "object",
+                        "properties": { "code": { "const": "internalEngine" } },
+                        "required": ["code"]
+                      },
+                      "then": {
+                        "type": "object",
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "threadId": { "$ref": "#/$defs/id" },
+                              "blockId": { "$ref": "#/$defs/id" }
+                            },
+                            "required": ["threadId", "blockId"]
+                          },
+                          {
+                            "type": "object",
+                            "not": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "threadId": { "$ref": "#/$defs/id" }
+                                  },
+                                  "required": ["threadId"]
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "blockId": { "$ref": "#/$defs/id" }
+                                  },
+                                  "required": ["blockId"]
+                                }
+                              ]
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ],
                   "additionalProperties": false
                 }
               },

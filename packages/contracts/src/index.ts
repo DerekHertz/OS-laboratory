@@ -188,7 +188,7 @@ export interface Snapshot {
     threadId: ContractId;
     status: ThreadStatus;
     coreId?: number;
-    blockId?: ContractId;
+    blockId: ContractId;
   }>;
   cores: Array<{
     coreId: number;
@@ -221,6 +221,51 @@ interface ReplyIdentity extends CommandIdentity {
   sequence: Uint64String;
 }
 
+type ErrorMessage = { message: string };
+
+export type ErrorPayload =
+  | (ErrorMessage & {
+      code: "unsupportedProtocol";
+      terminal: false;
+      receivedProtocolVersion: string;
+      threadId?: never;
+      blockId?: never;
+      snapshot?: never;
+    })
+  | (ErrorMessage & {
+      code:
+        | "invalidCommand"
+        | "unsupportedSchema"
+        | "unsupportedModel"
+        | "unsupportedEngine"
+        | "unsupportedRandomAlgorithm"
+        | "resourceLimit"
+        | "invalidState"
+        | "checkpointFailed";
+      terminal: false;
+      receivedProtocolVersion?: never;
+      threadId?: never;
+      blockId?: never;
+      snapshot?: never;
+    })
+  | (ErrorMessage & {
+      code: "arithmeticOverflow" | "controlBudgetExceeded";
+      terminal: true;
+      threadId: ContractId;
+      blockId: ContractId;
+      snapshot: Snapshot;
+      receivedProtocolVersion?: never;
+    })
+  | (ErrorMessage & {
+      code: "internalEngine";
+      terminal: true;
+      snapshot: Snapshot;
+      receivedProtocolVersion?: never;
+    } & (
+        | { threadId: ContractId; blockId: ContractId }
+        | { threadId?: never; blockId?: never }
+      ));
+
 export type Reply =
   | (ReplyIdentity & { kind: "ack"; payload: { commandKind: Command["kind"] } })
   | (ReplyIdentity & {
@@ -252,26 +297,7 @@ export type Reply =
     })
   | (ReplyIdentity & {
       kind: "error";
-      payload: {
-        code:
-          | "unsupportedProtocol"
-          | "invalidCommand"
-          | "unsupportedSchema"
-          | "unsupportedModel"
-          | "unsupportedEngine"
-          | "unsupportedRandomAlgorithm"
-          | "resourceLimit"
-          | "arithmeticOverflow"
-          | "controlBudgetExceeded"
-          | "invalidState"
-          | "checkpointFailed"
-          | "internalEngine";
-        message: string;
-        terminal: boolean;
-        receivedProtocolVersion?: string;
-        threadId?: ContractId;
-        blockId?: ContractId;
-      };
+      payload: ErrorPayload;
     });
 
 export function canApplyDelta(

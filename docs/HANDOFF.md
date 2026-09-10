@@ -1,21 +1,18 @@
 # Implementation handoff
 
-Date: 2026-09-09. Active branch: `codex/t02-program-transport-contract`. HEAD before T02 checkpoint: `3e80224434d8bdd4e9edf40b29d8286dc42830b3` (current `main` and T01 squash merge).
+Date: 2026-09-10. Active branch: `codex/t02-program-transport-contract`. Accepted T02 source/status checkpoint: `070e11e20c145aaa72b3b1f058aab0f9de6b804e`, based on integrated T01/main `3e80224434d8bdd4e9edf40b29d8286dc42830b3`.
 
-T00 and T01 are integrated. T01 PR #2 merged as `3e80224` after two protected `build-and-test` runs passed on exact head `8f3144c`, both in 52 seconds. The preserved T01 review report contains the initial findings and focused `ACCEPT` addendum.
+T00 and T01 remain integrated. T02 is complete on its branch and independently accepted for integration. The initial review at author checkpoint `734666f` found F1–F7; corrections at `c894a6a` and `702b2e0` resolved them. A re-review found residual R1 concerning authoritative active-block and fatal-state inspection; `117f729` resolved it. The final independent addendum in `docs/reviews/T02-REVIEW-RESULT.md` records `ACCEPT` with no blocking or significant findings.
 
-T02 authoring is complete enough for independent review. The normative contract is `content/concepts/program-transport-m1.md`; the shared draft-2020-12 schema is `packages/contracts/schema/contracts.schema.json`; the strict TypeScript projection is `packages/contracts/src/index.ts`; and 21 valid/invalid fixtures plus generated negative controls live under `tests/reference/contracts/` and `scripts/validate-contracts.mjs`. Ajv 8.20.0 is pinned in `package-lock.json`. T02 defines separate application/schema/protocol/model/engine/random versions, canonical decimal 64-bit integers, the closed M1 program AST, validation limits, all required commands/replies, checkpoint results, machine namespaces, typed event payloads, authoritative snapshots, ordered deltas, gap resynchronization, and pre-run/runtime error behavior. It adds no scheduler or engine behavior.
+T02 now delivers the normative `program-transport.m1/revision-1` contract, draft-2020-12 shared schema, strict TypeScript projection, semantic validator, and 30 valid/invalid fixtures. It defines separate compatibility dimensions, exact decimal 64-bit transport, the closed M1 program AST and limits, deterministic command/run routing, full-versus-delta inspection, stable authoritative snapshots, atomic deltas, kind-specific source identity, complete pre-ledger/runtime errors, final fatal snapshots, and immutable checkpoint bindings. It adds no event-kernel or scheduler implementation.
 
-Author verification:
+Verification on accepted source/status head `070e11e`:
 
-- `npm run contracts:check` passed: 21 cases; overflow, unsupported-version, byte-size, nesting-depth, recursive block-count, and sequence-gap negative controls were rejected.
+- `npm run contracts:check` passed 30 cases; overflow, version, random-algorithm, byte-size, depth, recursive block-count, and sequence-gap negative controls were rejected.
 - `npm run typecheck`, `npm run format:check`, and `git -c safe.directory=D:/codex/_projects/OS-laboratory diff --check` passed.
-- A full `npm run check` passed formatting, contract validation, TypeScript, Rustfmt, Clippy, Rust tests/docs, native release, and Wasm/web builds. Its browser phase had an environment failure: the first test timed out in `page.goto` with `net::ERR_ABORTED`; the other two passed. The Playwright process again lingered during preview teardown and was interrupted. This is not recorded as a full gate pass; protected clean-environment CI is still required after review.
+- With `C:\Users\Derek\.cargo\bin` prepended to `PATH`, `npm run check` passed formatting, contracts, TypeScript, Rustfmt, Clippy, Rust tests/docs, native release, Wasm/web builds, and all three Playwright tests. Preview teardown again lingered after results; the two exact preview Node PIDs were stopped, then the command exited 0 with `3 passed (48.5s)`.
+- The final independent reviewer separately reran the focused checks at `117f729`; all passed, and direct probes rejected both former R1 counterexamples.
 
-Next actions:
+No source blocker remains inside T02. Remote integration is intentionally outstanding because push was not explicitly authorized. The integration owner must push this branch, require protected final-head CI, and squash-merge with task ID T02. Do not claim protected CI until it has run on the pushed final head. T03 becomes dependency-ready only after that integration.
 
-1. Commit the T02 author checkpoint and assign an independent tier-A reviewer using `docs/reviews/T02-REVIEW-PACKET.md`. The reviewer writes only `docs/reviews/T02-REVIEW-RESULT.md`.
-2. Correct and re-review any blocking/significant findings. Do not start T03 until T02 is accepted and integrated.
-3. After acceptance, rerun the full local gate, push with explicit authorization, require protected final-head CI, and squash-merge with task ID T02.
-
-At this handoff the T02 source, dependency, fixture, task, verification, review-packet, routing, backlog, and this handoff files are dirty/untracked; no application, Rust crate, or T01 contract file is modified. No background command is running. Ignored `node_modules/`, `target/`, generated Wasm/browser output, Playwright reports/results, and `.verification/` are local artifacts, not source inputs.
+No agent or background command is running. After the handoff commit, the tracked worktree should be clean. Ignored `node_modules/`, `target/`, generated Wasm/web output, Playwright reports/results, and `.verification/` remain local artifacts, not source inputs.

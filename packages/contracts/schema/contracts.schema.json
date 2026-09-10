@@ -318,9 +318,23 @@
           "properties": {
             "kind": { "const": "inspect" },
             "payload": {
-              "type": "object",
-              "properties": { "afterSequence": { "$ref": "#/$defs/u64" } },
-              "additionalProperties": false
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": { "mode": { "const": "full" } },
+                  "required": ["mode"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "mode": { "const": "delta" },
+                    "afterSequence": { "$ref": "#/$defs/u64" }
+                  },
+                  "required": ["mode", "afterSequence"],
+                  "additionalProperties": false
+                }
+              ]
             }
           },
           "required": ["kind", "payload"]
@@ -457,6 +471,94 @@
           "if": {
             "type": "object",
             "properties": {
+              "kind": {
+                "enum": [
+                  "arrival",
+                  "dispatchStarted",
+                  "dispatchCompleted",
+                  "computeStarted",
+                  "computeCompleted",
+                  "ioSubmitted",
+                  "ioCompleted",
+                  "yielded",
+                  "quantumExpired",
+                  "terminated"
+                ]
+              }
+            },
+            "required": ["kind"]
+          },
+          "then": {
+            "type": "object",
+            "properties": { "threadId": { "$ref": "#/$defs/id" } },
+            "required": ["threadId"]
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "enum": [
+                  "computeStarted",
+                  "computeCompleted",
+                  "ioSubmitted",
+                  "ioCompleted",
+                  "yielded",
+                  "quantumExpired",
+                  "terminated"
+                ]
+              }
+            },
+            "required": ["kind"]
+          },
+          "then": {
+            "type": "object",
+            "properties": { "blockId": { "$ref": "#/$defs/id" } },
+            "required": ["blockId"]
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "enum": [
+                  "arrival",
+                  "dispatchStarted",
+                  "dispatchCompleted",
+                  "intervention",
+                  "runCompleted"
+                ]
+              }
+            },
+            "required": ["kind"]
+          },
+          "then": {
+            "type": "object",
+            "not": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": { "blockId": { "$ref": "#/$defs/id" } },
+                  "required": ["blockId"]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": { "enum": ["intervention", "runCompleted"] },
+                    "threadId": { "$ref": "#/$defs/id" }
+                  },
+                  "required": ["kind", "threadId"]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
               "kind": { "enum": ["ioCompleted", "yielded", "terminated"] }
             },
             "required": ["kind"]
@@ -464,6 +566,77 @@
           "then": {
             "type": "object",
             "properties": { "payload": { "$ref": "#/$defs/emptyPayload" } }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "kind": { "const": "runtimeError" },
+              "payload": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "enum": ["arithmeticOverflow", "controlBudgetExceeded"]
+                  }
+                },
+                "required": ["code"]
+              }
+            },
+            "required": ["kind", "payload"]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "threadId": { "$ref": "#/$defs/id" },
+              "blockId": { "$ref": "#/$defs/id" }
+            },
+            "required": ["threadId", "blockId"]
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "kind": { "const": "runtimeError" },
+              "payload": {
+                "type": "object",
+                "properties": { "code": { "const": "internalEngine" } },
+                "required": ["code"]
+              }
+            },
+            "required": ["kind", "payload"]
+          },
+          "then": {
+            "type": "object",
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "threadId": { "$ref": "#/$defs/id" },
+                  "blockId": { "$ref": "#/$defs/id" }
+                },
+                "required": ["threadId", "blockId"]
+              },
+              {
+                "not": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "threadId": { "$ref": "#/$defs/id" }
+                      },
+                      "required": ["threadId"]
+                    },
+                    {
+                      "type": "object",
+                      "properties": { "blockId": { "$ref": "#/$defs/id" } },
+                      "required": ["blockId"]
+                    }
+                  ]
+                }
+              }
+            ]
           }
         },
         {
@@ -833,9 +1006,20 @@
                   "type": "object",
                   "properties": {
                     "checkpointId": { "$ref": "#/$defs/id" },
-                    "tick": { "$ref": "#/$defs/u64" }
+                    "tick": { "$ref": "#/$defs/u64" },
+                    "stateSequence": { "$ref": "#/$defs/u64" },
+                    "modelVersion": { "const": "sched.m1/revision-1" },
+                    "engineVersion": { "const": "sim-engine.0.1.0" },
+                    "randomAlgorithmVersion": { "const": "none.v1" }
                   },
-                  "required": ["checkpointId", "tick"],
+                  "required": [
+                    "checkpointId",
+                    "tick",
+                    "stateSequence",
+                    "modelVersion",
+                    "engineVersion",
+                    "randomAlgorithmVersion"
+                  ],
                   "additionalProperties": false
                 }
               },
@@ -937,6 +1121,7 @@
                         "unsupportedSchema",
                         "unsupportedModel",
                         "unsupportedEngine",
+                        "unsupportedRandomAlgorithm",
                         "resourceLimit",
                         "arithmeticOverflow",
                         "controlBudgetExceeded",

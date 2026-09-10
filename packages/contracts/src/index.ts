@@ -86,7 +86,8 @@ export type Command =
     })
   | (CommandIdentity & {
       kind: "inspect";
-      payload: { afterSequence?: Uint64String };
+      payload:
+        { mode: "full" } | { mode: "delta"; afterSequence: Uint64String };
     })
   | (CommandIdentity & {
       kind: "checkpoint";
@@ -112,46 +113,62 @@ interface EventBase {
   eventSequence: Uint64String;
   tick: Uint64String;
   entityIds: ContractId[];
-  threadId?: ContractId;
-  blockId?: ContractId;
   causalParentIds: ContractId[];
 }
+
+type ThreadEventBase = EventBase & {
+  threadId: ContractId;
+  blockId?: never;
+};
+
+type BlockEventBase = EventBase & {
+  threadId: ContractId;
+  blockId: ContractId;
+};
+
+type GlobalEventBase = EventBase & {
+  threadId?: never;
+  blockId?: never;
+};
 
 type CoreGenerationPayload = { coreId: number; generation: Uint64String };
 
 export type CanonicalEvent =
-  | (EventBase & {
+  | (ThreadEventBase & {
       kind: "arrival";
       payload: { declarationIndex: number };
     })
-  | (EventBase & {
-      kind:
-        | "dispatchStarted"
-        | "dispatchCompleted"
-        | "computeStarted"
-        | "computeCompleted"
-        | "quantumExpired";
+  | (ThreadEventBase & {
+      kind: "dispatchStarted" | "dispatchCompleted";
       payload: CoreGenerationPayload;
     })
-  | (EventBase & {
+  | (BlockEventBase & {
+      kind: "computeStarted" | "computeCompleted" | "quantumExpired";
+      payload: CoreGenerationPayload;
+    })
+  | (BlockEventBase & {
       kind: "ioSubmitted";
       payload: { duration: Uint64String; completionTick: Uint64String };
     })
-  | (EventBase & {
+  | (BlockEventBase & {
       kind: "ioCompleted" | "yielded" | "terminated";
       payload: {};
     })
-  | (EventBase & {
+  | (BlockEventBase & {
       kind: "runtimeError";
       payload: {
-        code: "arithmeticOverflow" | "controlBudgetExceeded" | "internalEngine";
+        code: "arithmeticOverflow" | "controlBudgetExceeded";
       };
     })
-  | (EventBase & {
+  | ((BlockEventBase | GlobalEventBase) & {
+      kind: "runtimeError";
+      payload: { code: "internalEngine" };
+    })
+  | (GlobalEventBase & {
       kind: "intervention";
       payload: { kind: "setTraceMode"; traceMode: TraceMode };
     })
-  | (EventBase & {
+  | (GlobalEventBase & {
       kind: "runCompleted";
       payload: {
         completedThreads: number;
@@ -212,7 +229,14 @@ export type Reply =
     })
   | (ReplyIdentity & {
       kind: "checkpoint";
-      payload: { checkpointId: ContractId; tick: Uint64String };
+      payload: {
+        checkpointId: ContractId;
+        tick: Uint64String;
+        stateSequence: Uint64String;
+        modelVersion: typeof MODEL_VERSION;
+        engineVersion: typeof ENGINE_VERSION;
+        randomAlgorithmVersion: typeof RANDOM_ALGORITHM_VERSION;
+      };
     })
   | (ReplyIdentity & {
       kind: "state";
@@ -235,6 +259,7 @@ export type Reply =
           | "unsupportedSchema"
           | "unsupportedModel"
           | "unsupportedEngine"
+          | "unsupportedRandomAlgorithm"
           | "resourceLimit"
           | "arithmeticOverflow"
           | "controlBudgetExceeded"

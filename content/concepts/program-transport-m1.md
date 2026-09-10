@@ -13,7 +13,7 @@ Compatibility fields are recorded independently:
 - `engineVersion` is the exact compatible engine contract, initially `sim-engine.0.1.0`, and is persisted with a run.
 - `randomAlgorithmVersion`, initially `none.v1`, and unsigned 64-bit `seed` are always persisted, even when the selected M1 policy does not consume randomness.
 
-An exact unknown schema or protocol version is rejected; it is never coerced. A workload naming an unsupported model or engine is rejected before execution. Saved runs retain all four values. Schema migration changes stored shape explicitly; it never claims engine replay compatibility. An archived result may be viewed without being replayable.
+An exact unknown schema or protocol version is rejected; it is never coerced. A workload naming an unsupported model, engine, or random algorithm is rejected before execution with the corresponding `unsupportedModel`, `unsupportedEngine`, or `unsupportedRandomAlgorithm` code. `applicationVersion` is descriptive and does not gate execution. Saved runs retain every compatibility field. Schema migration changes stored shape explicitly; it never claims engine replay compatibility. An archived result may be viewed without being replayable.
 
 ## Exact integers and identifiers
 
@@ -48,12 +48,25 @@ Every command has `protocolVersion`, `requestId`, `runId`, `kind`, and the paylo
 - `create` supplies the complete workload and trace mode.
 - `start` and `pause` request lifecycle transitions.
 - `advance` selects the next global event, next active tick, or next instruction boundary for a named thread.
-- `inspect` requests a full snapshot, optionally noting the last contiguous sequence the client holds.
+- `inspect` uses a closed payload: `{ mode: "full" }` requests an unconditional full snapshot, while `{ mode: "delta", afterSequence }` requests changes after the client's last contiguous sequence and may fall back to a full snapshot.
 - `checkpoint` requests an engine checkpoint with an optional text label.
 - `cancel` requests terminal cancellation.
 - `intervene` revision 1 supports only `setTraceMode`. This changes retention/transfer detail, not simulated outcomes, and is recorded at the next event boundary.
 
-Commands for an unknown protocol receive `unsupportedProtocol`. That error uses the worker's supported `protocolVersion`, echoes lexically valid request/run IDs, records the received version in the error payload, and uses sequence `"0"` because no run ledger exists. An envelope whose IDs cannot be safely recovered is discarded. Malformed known-protocol commands receive `invalidCommand`, also with sequence `"0"` when creation never produced a ledger. A command for an obsolete run ID is ignored with no reply so that delayed worker messages cannot mutate the active run. Request IDs do not provide scheduling order; the worker processes accepted commands serially.
+Routing is deterministic and uses this precedence. Request IDs do not provide scheduling order; the worker processes accepted commands serially.
+
+| Step | Condition | Outcome |
+| --- | --- | --- |
+| 1 | The envelope cannot recover lexically valid `protocolVersion`, `requestId`, and `runId` strings | Discard it without a reply. |
+| 2 | The recovered protocol is unsupported | Reply `unsupportedProtocol` using the worker's supported protocol, the recovered IDs, sequence `"0"`, `terminal: false`, and the received version. This precedes run lookup. |
+| 3 | The known-protocol command is structurally malformed | Reply `invalidCommand`, sequence `"0"`, `terminal: false`. This precedes run lookup. |
+| 4 | The run ID is in the worker-session retired-ID set | Ignore the command without a reply, including a later `create`; retired IDs are the only obsolete IDs and are never reused. |
+| 5 | The run ID is current | Apply a non-`create` command to that ledger. A duplicate `create` receives nonterminal `invalidState` at the current ledger sequence. |
+| 6 | The run ID is unknown and the command is not `create` | Reply nonterminal `invalidState` at sequence `"0"`; the ID is not thereby reserved or retired. |
+| 7 | The run ID is unknown, the command is `create`, and another run is current | Reply nonterminal `invalidState` at sequence `"0"`; creating a replacement first requires cancel/restart retirement of the current run. |
+| 8 | The run ID is unknown, the command is `create`, and no run is current | Validate atomically. A validation or compatibility error uses the pre-ledger rules below; success creates the sole current ledger and reserves the ID permanently for this worker session. |
+
+Clients likewise discard replies for any noncurrent run ID. Cancel, terminal completion/error, and explicit restart retire the current ID before another create may succeed.
 
 ## Replies, snapshots, deltas, and errors
 
@@ -61,19 +74,27 @@ Every emitted reply names the protocol used to encode the reply and echoes reque
 
 - `ack` confirms acceptance, not completion;
 - `progress` reports bounded work progress and the latest sequence;
-- `checkpoint` reports the stable checkpoint ID and tick after checkpoint creation succeeds;
+- `checkpoint` reports the stable checkpoint ID plus its run, model, engine, random-algorithm, tick, and state-sequence bindings after checkpoint creation succeeds;
 - `state` carries exactly one full snapshot or delta;
 - `completed` carries terminal outcome and final snapshot;
 - `cancelled` carries the last confirmed snapshot;
 - `error` carries a stable error code, safe message, optional source location, and whether the run is terminal.
 
-Snapshots are authoritative and carry a sequence. Deltas carry `baseSequence` and `sequence` and apply only when `baseSequence` equals the client's last contiguous sequence. Otherwise the client discards the delta and sends `inspect`; the worker answers with a full snapshot. Delta operations are an ordered, closed union: replace run summary, set one thread, set one core, replace the ready queue, append canonical events, or replace trace-retention metadata. Unknown operations are invalid rather than ignored.
+Snapshots are authoritative and carry a sequence. They are emitted only at stable boundaries after all four T01 phases for a tick have closed; they never expose an intra-phase state. Consequently, a nonempty ready queue cannot coexist with an idle core. Every queue and core reference resolves to exactly one listed thread, and the bidirectional status/ownership constraints hold.
 
-Errors distinguish validation/protocol failure, unsupported schema/model/engine, resource limits, arithmetic overflow, control-budget exhaustion, invalid state transitions, checkpoint failure, and internal engine failure. Runtime overflow and control-budget exhaustion use T01's run-fatal accounting; transport errors do not silently turn into completed runs.
+Deltas carry `baseSequence` and `sequence` and apply only when `baseSequence` equals the client's last contiguous sequence. Otherwise the client discards the delta and sends `inspect` with `{ mode: "full" }`; that request must return a full snapshot, never a delta. Delta operations are an ordered, closed union: replace run summary, set one thread, set one core, replace the ready queue, append canonical events, or replace trace-retention metadata. A delta is applied atomically in listed order; later operations replace earlier writes to the same run/thread/core/queue/trace target. Appended event batches concatenate in operation order. Intermediate states need not satisfy ownership rules, but the final state must satisfy every full-snapshot invariant, have sequence equal to the delta sequence, and have event/trace continuity. Failure rejects the entire delta and triggers a full resynchronization; no prefix is committed. Unknown operations are invalid rather than ignored.
+
+Errors distinguish validation/protocol failure, unsupported schema/model/engine/random algorithm, resource limits, arithmetic overflow, control-budget exhaustion, invalid state transitions, checkpoint failure, and internal engine failure. Pre-ledger `invalidCommand`, `unsupportedSchema`, `unsupportedModel`, `unsupportedEngine`, `unsupportedRandomAlgorithm`, and `resourceLimit` failures use sequence `"0"` and `terminal: false` because no run exists. `unsupportedProtocol` follows routing step 2. Ledger-scoped `invalidState` and `checkpointFailed` use the current ledger sequence and are nonterminal. Runtime `arithmeticOverflow`, `controlBudgetExceeded`, and `internalEngine` use the current ledger sequence, are terminal, and use T01's run-fatal accounting. `terminal` always describes an existing run, never merely a rejected request; transport errors do not silently turn into completed runs. `receivedProtocolVersion` appears only on `unsupportedProtocol`.
 
 ## Events and source mapping
 
-Canonical M1 events carry machine-namespaced `eventId`, contiguous run-local `eventSequence`, `tick`, `kind`, ordered `entityIds`, optional `threadId`, optional `blockId`, ordered causal parent IDs, and a kind-specific payload. Event sequence begins at `"1"`; retained event arrays are ascending but may begin later after declared truncation. The closed revision-1 kinds are arrival, dispatch start/completion, compute start/completion, I/O submission/completion, yield, quantum expiration, termination, runtime error, intervention, and run completion. Source-block IDs always refer to the immutable program copy persisted with the run.
+Canonical M1 events carry machine-namespaced `eventId`, contiguous run-local `eventSequence`, `tick`, `kind`, ordered `entityIds`, ordered causal parent IDs, and a kind-specific payload. Event sequence begins at `"1"`; retained event arrays are ascending but may begin later after declared truncation. Causal parent IDs name earlier canonical events in the same run; after trace-prefix truncation they may name a no-longer-retained event, so absence from the retained array is not invalid.
+
+Identity is required by kind. `arrival`, both dispatch events, both compute events, I/O submission/completion, yield, quantum expiration, and termination require `threadId`. Compute start/completion, I/O submission/completion, yield, quantum expiration, and termination also require the active source `blockId`. `arrival` and dispatch events have no block ID. An `arithmeticOverflow` or `controlBudgetExceeded` runtime error requires both the offending thread and block; a global `internalEngine` error has neither, while a thread-attributed one has both. Intervention and run completion have neither. A thread-scoped event includes its thread ID in `entityIds`; core-scoped events also include the machine-namespaced core entity ID chosen by T03. Given the persisted workload, each event thread must exist and every block must belong to that thread's program; producers must reject rather than emit a cross-program mapping.
+
+The closed revision-1 kinds are arrival, dispatch start/completion, compute start/completion, I/O submission/completion, yield, quantum expiration, termination, runtime error, intervention, and run completion. Source-block IDs always refer to the immutable program copy persisted with the run.
+
+Checkpoint IDs are opaque run-scoped IDs beginning with the reply `runId` plus `:`. They are generated by the engine, never derived from or replaced by the optional user label, and are never reused within a run. The checkpoint envelope is immutable and binds that ID to the run ID, exact model/engine/random-algorithm versions, tick, state sequence, complete workload, ordered interventions through that sequence, and engine state. Reusing an ID for different content is `checkpointFailed`; loading any mismatched binding is rejected as the applicable unsupported-version or checkpoint failure rather than silently replayed. The checkpoint reply sequence equals its `stateSequence` and repeats the identity and compatibility bindings needed to select a compatible checkpoint; T13 defines serialization without weakening them.
 
 Events are batched in replies. Retention metadata states whether the detailed prefix was truncated and the first/last retained event IDs. Trace mode may change storage/detail only; canonical terminal state and metrics must remain identical.
 

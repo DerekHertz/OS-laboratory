@@ -159,6 +159,7 @@ function validateWorkload(workload) {
     for (const operand of operandsIn(program)) {
       if (!operand.parameter) continue;
       const declaration = declarations.get(operand.parameter);
+      if (!declaration) continue;
       const value = thread.parameters[operand.parameter] ?? declaration.default;
       if (BigInt(value) <= 0n)
         errors.push(`nonpositive runtime operand ${operand.parameter}`);
@@ -189,20 +190,62 @@ function validateReply(reply) {
     if (reply.sequence !== delta.sequence)
       errors.push("reply/delta sequence mismatch");
   }
+  if (reply.kind === "checkpoint") {
+    if (!reply.payload.checkpointId.startsWith(`${reply.runId}:`)) {
+      errors.push("checkpoint outside run namespace");
+    }
+    if (reply.sequence !== reply.payload.stateSequence) {
+      errors.push("checkpoint state sequence mismatch");
+    }
+  }
   if (reply.kind === "error") {
     const runtimeCodes = new Set([
       "arithmeticOverflow",
       "controlBudgetExceeded",
       "internalEngine",
     ]);
-    if (runtimeCodes.has(reply.payload.code) && !reply.payload.terminal) {
-      errors.push("runtime error is not terminal");
+    const preLedgerCodes = new Set([
+      "unsupportedProtocol",
+      "invalidCommand",
+      "unsupportedSchema",
+      "unsupportedModel",
+      "unsupportedEngine",
+      "unsupportedRandomAlgorithm",
+      "resourceLimit",
+    ]);
+    const ledgerNonterminalCodes = new Set([
+      "invalidState",
+      "checkpointFailed",
+    ]);
+    if (
+      runtimeCodes.has(reply.payload.code) &&
+      (!reply.payload.terminal || reply.payload.receivedProtocolVersion)
+    ) {
+      errors.push("runtime error metadata is invalid");
     }
     if (
       reply.payload.code === "unsupportedProtocol" &&
       (reply.sequence !== "0" || !reply.payload.receivedProtocolVersion)
     ) {
       errors.push("unsupported protocol error lacks pre-run metadata");
+    }
+    if (
+      preLedgerCodes.has(reply.payload.code) &&
+      (reply.sequence !== "0" || reply.payload.terminal)
+    ) {
+      errors.push("pre-ledger error has run-scoped metadata");
+    }
+    if (
+      reply.payload.code !== "unsupportedProtocol" &&
+      reply.payload.receivedProtocolVersion
+    ) {
+      errors.push("received protocol version on unrelated error");
+    }
+    if (
+      ledgerNonterminalCodes.has(reply.payload.code) &&
+      reply.payload.terminal
+    ) {
+      errors.push("recoverable ledger error is terminal");
     }
   }
   return errors;
@@ -235,6 +278,18 @@ function validateSnapshot(snapshot) {
     }
   }
   const ready = new Set(snapshot.readyQueue);
+  for (const threadId of snapshot.readyQueue) {
+    const thread = threads.get(threadId);
+    if (!thread || thread.status !== "ready") {
+      errors.push(`ready queue references non-ready thread ${threadId}`);
+    }
+  }
+  if (
+    snapshot.readyQueue.length > 0 &&
+    snapshot.cores.some((core) => core.state === "idle")
+  ) {
+    errors.push("stable snapshot has ready work and an idle core");
+  }
   for (const thread of snapshot.threads) {
     const isReady = thread.status === "ready";
     if (ready.has(thread.threadId) !== isReady) {
@@ -264,6 +319,9 @@ function validateSnapshot(snapshot) {
     }
   }
   const eventIds = new Set();
+  const retainedEventIds = new Set(
+    snapshot.events.map((event) => event.eventId),
+  );
   let previousEventSequence;
   for (const event of snapshot.events) {
     if (!event.eventId.startsWith(machinePrefix)) {
@@ -278,9 +336,15 @@ function validateSnapshot(snapshot) {
       if (!parentId.startsWith(machinePrefix)) {
         errors.push(`causal parent outside machine namespace ${parentId}`);
       }
+      if (retainedEventIds.has(parentId) && !eventIds.has(parentId)) {
+        errors.push(`causal parent is not earlier ${parentId}`);
+      }
     }
     if (event.threadId && !event.threadId.startsWith(machinePrefix)) {
       errors.push(`event thread outside machine namespace ${event.threadId}`);
+    }
+    if (event.threadId && !event.entityIds.includes(event.threadId)) {
+      errors.push(`event entities omit thread ${event.threadId}`);
     }
     if (eventIds.has(event.eventId))
       errors.push(`duplicate event ${event.eventId}`);
@@ -310,6 +374,37 @@ function validateSnapshot(snapshot) {
   return errors;
 }
 
+function applyDelta(baseSnapshot, delta) {
+  if (baseSnapshot.sequence !== delta.baseSequence) return undefined;
+  const result = structuredClone(baseSnapshot);
+  for (const operation of delta.operations) {
+    if (operation.op === "replaceRun") {
+      result.status = operation.status;
+      result.tick = operation.tick;
+    } else if (operation.op === "setThread") {
+      const index = result.threads.findIndex(
+        (thread) => thread.threadId === operation.thread.threadId,
+      );
+      if (index === -1) result.threads.push(structuredClone(operation.thread));
+      else result.threads[index] = structuredClone(operation.thread);
+    } else if (operation.op === "setCore") {
+      const index = result.cores.findIndex(
+        (core) => core.coreId === operation.core.coreId,
+      );
+      if (index === -1) result.cores.push(structuredClone(operation.core));
+      else result.cores[index] = structuredClone(operation.core);
+    } else if (operation.op === "replaceReadyQueue") {
+      result.readyQueue = [...operation.threadIds];
+    } else if (operation.op === "appendEvents") {
+      result.events.push(...structuredClone(operation.events));
+    } else if (operation.op === "replaceTrace") {
+      result.trace = structuredClone(operation.trace);
+    }
+  }
+  result.sequence = delta.sequence;
+  return result;
+}
+
 function semanticErrors(target, value) {
   if (target === "program") return validateProgram(value);
   if (target === "workload") return validateWorkload(value);
@@ -328,6 +423,20 @@ for (const testCase of fixture.cases) {
   const semantic = structural
     ? semanticErrors(testCase.target, testCase.value)
     : [];
+  if (
+    structural &&
+    testCase.target === "reply" &&
+    testCase.value.kind === "state" &&
+    testCase.value.payload.delta &&
+    testCase.baseSnapshot
+  ) {
+    const applied = applyDelta(
+      testCase.baseSnapshot,
+      testCase.value.payload.delta,
+    );
+    if (!applied) semantic.push("fixture delta does not match base snapshot");
+    else semantic.push(...validateSnapshot(applied));
+  }
   const actual = structural && semantic.length === 0;
   if (actual !== testCase.valid) {
     failed += 1;
@@ -356,6 +465,15 @@ engineCase.value.engineVersion = "sim-engine.9.9.9";
 if (validators.get("workload")(engineCase.value)) {
   failed += 1;
   console.error("negative control: unsupported engine was accepted");
+}
+
+const randomCase = structuredClone(
+  fixture.cases.find((item) => item.id === "V02-workload-preserves-u64"),
+);
+randomCase.value.randomAlgorithmVersion = "future.v2";
+if (validators.get("workload")(randomCase.value)) {
+  failed += 1;
+  console.error("negative control: unsupported random algorithm was accepted");
 }
 
 let nestedBlock = { blockId: "depth.end", op: "end" };
@@ -432,5 +550,5 @@ if (canApplyDelta("8", { baseSequence: "7", sequence: "9" })) {
 
 if (failed) process.exit(1);
 console.log(
-  `${fixture.cases.length} contract cases passed; overflow, version, size, depth, block-count, and sequence-gap negative controls rejected`,
+  `${fixture.cases.length} contract cases passed; overflow, version, random-algorithm, size, depth, block-count, and sequence-gap negative controls rejected`,
 );

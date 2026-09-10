@@ -151,6 +151,30 @@
       "id": "V05-state-delta-reply",
       "target": "reply",
       "valid": true,
+      "baseSnapshot": {
+        "machineId": "machine.main",
+        "sequence": "9007199254740992",
+        "tick": "0",
+        "status": "running",
+        "readyQueue": [],
+        "threads": [
+          {
+            "threadId": "machine.main:thread.one",
+            "status": "running",
+            "coreId": 0,
+            "blockId": "one.compute"
+          }
+        ],
+        "cores": [
+          {
+            "coreId": 0,
+            "state": "running",
+            "threadId": "machine.main:thread.one"
+          }
+        ],
+        "events": [],
+        "trace": { "truncated": false }
+      },
       "value": {
         "protocolVersion": "os-lab-protocol/1",
         "requestId": "request.start.1",
@@ -164,12 +188,20 @@
             "operations": [
               {
                 "op": "replaceRun",
-                "status": "running",
+                "status": "completed",
                 "tick": "18446744073709551615"
               },
               {
-                "op": "replaceReadyQueue",
-                "threadIds": ["machine.main:thread.one"]
+                "op": "setThread",
+                "thread": {
+                  "threadId": "machine.main:thread.one",
+                  "status": "terminated",
+                  "blockId": "one.end"
+                }
+              },
+              {
+                "op": "setCore",
+                "core": { "coreId": 0, "state": "idle" }
               }
             ]
           }
@@ -203,19 +235,30 @@
         "protocolVersion": "os-lab-protocol/1",
         "requestId": "request.inspect.1",
         "runId": "run.1",
-        "sequence": "1",
+        "sequence": "2",
         "kind": "state",
         "payload": {
           "snapshot": {
             "machineId": "machine.main",
-            "sequence": "1",
+            "sequence": "2",
             "tick": "0",
             "status": "running",
-            "readyQueue": ["machine.main:thread.one"],
+            "readyQueue": [],
             "threads": [
-              { "threadId": "machine.main:thread.one", "status": "ready" }
+              {
+                "threadId": "machine.main:thread.one",
+                "status": "dispatching",
+                "coreId": 0,
+                "blockId": "one.compute"
+              }
             ],
-            "cores": [{ "coreId": 0, "state": "idle" }],
+            "cores": [
+              {
+                "coreId": 0,
+                "state": "dispatching",
+                "threadId": "machine.main:thread.one"
+              }
+            ],
             "events": [
               {
                 "eventId": "machine.main:event.1",
@@ -226,12 +269,22 @@
                 "threadId": "machine.main:thread.one",
                 "causalParentIds": [],
                 "payload": { "declarationIndex": 0 }
+              },
+              {
+                "eventId": "machine.main:event.2",
+                "eventSequence": "2",
+                "tick": "0",
+                "kind": "dispatchStarted",
+                "entityIds": ["machine.main:thread.one", "machine.main:core.0"],
+                "threadId": "machine.main:thread.one",
+                "causalParentIds": ["machine.main:event.1"],
+                "payload": { "coreId": 0, "generation": "1" }
               }
             ],
             "trace": {
               "truncated": false,
               "firstEventId": "machine.main:event.1",
-              "lastEventId": "machine.main:event.1"
+              "lastEventId": "machine.main:event.2"
             }
           }
         }
@@ -247,7 +300,14 @@
         "runId": "run.1",
         "sequence": "9",
         "kind": "checkpoint",
-        "payload": { "checkpointId": "checkpoint.1", "tick": "7" }
+        "payload": {
+          "checkpointId": "run.1:checkpoint.1",
+          "tick": "7",
+          "stateSequence": "9",
+          "modelVersion": "sched.m1/revision-1",
+          "engineVersion": "sim-engine.0.1.0",
+          "randomAlgorithmVersion": "none.v1"
+        }
       }
     },
     {
@@ -265,6 +325,35 @@
           "message": "Unsupported protocol version.",
           "terminal": false,
           "receivedProtocolVersion": "os-lab-protocol/2"
+        }
+      }
+    },
+    {
+      "id": "V10-full-resynchronization-inspect",
+      "target": "command",
+      "valid": true,
+      "value": {
+        "protocolVersion": "os-lab-protocol/1",
+        "requestId": "request.inspect.full",
+        "runId": "run.1",
+        "kind": "inspect",
+        "payload": { "mode": "full" }
+      }
+    },
+    {
+      "id": "V11-unsupported-random-algorithm-error",
+      "target": "reply",
+      "valid": true,
+      "value": {
+        "protocolVersion": "os-lab-protocol/1",
+        "requestId": "request.create.random",
+        "runId": "run.random",
+        "sequence": "0",
+        "kind": "error",
+        "payload": {
+          "code": "unsupportedRandomAlgorithm",
+          "message": "Unsupported random algorithm version.",
+          "terminal": false
         }
       }
     },
@@ -289,7 +378,7 @@
         "requestId": "request.inspect.bad",
         "runId": "run.1",
         "kind": "inspect",
-        "payload": { "afterSequence": 9007199254740993 }
+        "payload": { "mode": "delta", "afterSequence": 9007199254740993 }
       }
     },
     {
@@ -301,7 +390,10 @@
         "requestId": "request.inspect.overflow",
         "runId": "run.1",
         "kind": "inspect",
-        "payload": { "afterSequence": "18446744073709551616" }
+        "payload": {
+          "mode": "delta",
+          "afterSequence": "18446744073709551616"
+        }
       }
     },
     {
@@ -489,6 +581,191 @@
             ],
             "events": [],
             "trace": { "truncated": false }
+          }
+        }
+      }
+    },
+    {
+      "id": "I13-unknown-operand-parameter-rejects-without-crash",
+      "target": "workload",
+      "valid": false,
+      "value": {
+        "schemaVersion": "os-lab-workload/1",
+        "applicationVersion": "app.0.1.0",
+        "modelVersion": "sched.m1/revision-1",
+        "engineVersion": "sim-engine.0.1.0",
+        "randomAlgorithmVersion": "none.v1",
+        "seed": "0",
+        "machine": {
+          "machineId": "machine.main",
+          "cores": 1,
+          "switchCost": "0",
+          "controlOperationBudgetPerTick": "1"
+        },
+        "policy": { "kind": "fcfs" },
+        "programs": [
+          {
+            "schemaVersion": "os-lab-program/1",
+            "programId": "program.bad-operand",
+            "name": "Unknown operand",
+            "parameters": [],
+            "blocks": [
+              {
+                "blockId": "bad.compute",
+                "op": "compute",
+                "duration": { "parameter": "missingTicks" }
+              },
+              { "blockId": "bad.end", "op": "end" }
+            ]
+          }
+        ],
+        "threads": [
+          {
+            "threadId": "machine.main:thread.one",
+            "programId": "program.bad-operand",
+            "arrival": "0",
+            "parameters": {}
+          }
+        ]
+      }
+    },
+    {
+      "id": "I14-compute-event-missing-source-identity",
+      "target": "reply",
+      "valid": false,
+      "value": {
+        "protocolVersion": "os-lab-protocol/1",
+        "requestId": "request.inspect.missing-source",
+        "runId": "run.1",
+        "sequence": "1",
+        "kind": "state",
+        "payload": {
+          "snapshot": {
+            "machineId": "machine.main",
+            "sequence": "1",
+            "tick": "0",
+            "status": "running",
+            "readyQueue": [],
+            "threads": [],
+            "cores": [{ "coreId": 0, "state": "idle" }],
+            "events": [
+              {
+                "eventId": "machine.main:event.1",
+                "eventSequence": "1",
+                "tick": "0",
+                "kind": "computeStarted",
+                "entityIds": [],
+                "causalParentIds": [],
+                "payload": { "coreId": 0, "generation": "0" }
+              }
+            ],
+            "trace": {
+              "truncated": false,
+              "firstEventId": "machine.main:event.1",
+              "lastEventId": "machine.main:event.1"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "I15-snapshot-ready-queue-ghost",
+      "target": "reply",
+      "valid": false,
+      "value": {
+        "protocolVersion": "os-lab-protocol/1",
+        "requestId": "request.inspect.ghost",
+        "runId": "run.1",
+        "sequence": "1",
+        "kind": "state",
+        "payload": {
+          "snapshot": {
+            "machineId": "machine.main",
+            "sequence": "1",
+            "tick": "0",
+            "status": "running",
+            "readyQueue": ["machine.main:thread.ghost"],
+            "threads": [],
+            "cores": [{ "coreId": 0, "state": "idle" }],
+            "events": [],
+            "trace": { "truncated": false }
+          }
+        }
+      }
+    },
+    {
+      "id": "I16-pre-ledger-error-cannot-be-terminal-or-sequenced",
+      "target": "reply",
+      "valid": false,
+      "value": {
+        "protocolVersion": "os-lab-protocol/1",
+        "requestId": "request.create.bad-engine",
+        "runId": "run.1",
+        "sequence": "9",
+        "kind": "error",
+        "payload": {
+          "code": "unsupportedEngine",
+          "message": "Unsupported engine version.",
+          "terminal": true
+        }
+      }
+    },
+    {
+      "id": "I17-delta-final-state-breaks-stable-ownership",
+      "target": "reply",
+      "valid": false,
+      "baseSnapshot": {
+        "machineId": "machine.main",
+        "sequence": "1",
+        "tick": "0",
+        "status": "running",
+        "readyQueue": [],
+        "threads": [
+          {
+            "threadId": "machine.main:thread.one",
+            "status": "running",
+            "coreId": 0,
+            "blockId": "one.compute"
+          }
+        ],
+        "cores": [
+          {
+            "coreId": 0,
+            "state": "running",
+            "threadId": "machine.main:thread.one"
+          }
+        ],
+        "events": [],
+        "trace": { "truncated": false }
+      },
+      "value": {
+        "protocolVersion": "os-lab-protocol/1",
+        "requestId": "request.state.bad-final",
+        "runId": "run.1",
+        "sequence": "2",
+        "kind": "state",
+        "payload": {
+          "delta": {
+            "baseSequence": "1",
+            "sequence": "2",
+            "operations": [
+              {
+                "op": "setThread",
+                "thread": {
+                  "threadId": "machine.main:thread.one",
+                  "status": "ready",
+                  "blockId": "one.compute"
+                }
+              },
+              {
+                "op": "setCore",
+                "core": { "coreId": 0, "state": "idle" }
+              },
+              {
+                "op": "replaceReadyQueue",
+                "threadIds": ["machine.main:thread.one"]
+              }
+            ]
           }
         }
       }

@@ -187,3 +187,98 @@ git -c safe.directory=D:/codex/_projects/OS-laboratory diff --check
 ```
 
 These results are bounded structural evidence and do not resolve the counterexamples above. T03 must not start until the contract is corrected and independently re-reviewed.
+
+## Re-review addendum — 2026-09-10
+
+Re-review target: exact fixed head `702b2e01f584a78c341cc02a2de16f32c0677bbd`. I inspected both correction commits, `c894a6ac6924943641553d62bf74c10b4fe54afa` and `702b2e01f584a78c341cc02a2de16f32c0677bbd`, against the original packet and every finding above.
+
+### Disposition of F1–F7
+
+- **F1 resolved.** `validateWorkload` now guards a missing operand declaration instead of dereferencing `undefined`. Fixture `I13-unknown-operand-parameter-rejects-without-crash` reproduces the original complete workload and is rejected cleanly. Atomic create rejection remains explicit.
+- **F2 resolved for canonical events.** Prose, schema, and the TypeScript discriminated union now require/forbid thread and block identity by event kind. Arithmetic/control-budget errors require the offending thread and block; internal-engine errors are either globally unattributed or carry both. Fixture `I14-compute-event-missing-source-identity` rejects the original source-less compute event. Causal-parent behavior after prefix truncation and cross-program producer validation are explicit.
+- **F3 resolved.** The routing precedence table now distinguishes unrecoverable envelopes, unsupported protocols, malformed known-protocol envelopes/payloads, retired IDs, current IDs, unknown IDs, duplicate creates, and create while another run is current. Commit `702b2e0` further separates recoverable create discriminators from workload-body validation and gives deterministic compatibility-check order. Unsupported protocol wins before run lookup; only retired IDs are silently ignored.
+- **F4 resolved.** `unsupportedRandomAlgorithm` exists in prose, schema, projection, and fixtures. Pre-ledger compatibility/validation/resource errors are sequence `"0"` and nonterminal; ledger-scoped recoverable errors use the current sequence and remain nonterminal; runtime errors are terminal. `receivedProtocolVersion` is limited to `unsupportedProtocol`. `I16` rejects contradictory pre-ledger terminal/sequence metadata.
+- **F5 resolved.** Full-snapshot validation now rejects ghost/non-ready queue references and ready-plus-idle stable states. Snapshots are explicitly post-phase-closure stable boundaries. Deltas apply atomically in order, cannot add thread/core identities, and must produce a final state satisfying the full-snapshot, event, trace, and sequence invariants. `V05` and `I17` exercise valid and invalid base-plus-delta transitions; `702b2e0` closes the remaining new-identity behavior in the fixture applicator.
+- **F6 resolved.** Inspect payloads are a closed union of `{ "mode": "full" }` and `{ "mode": "delta", "afterSequence": ... }`. Gap recovery explicitly sends full mode, which must return a snapshot and never another delta. `V10` covers the full-resynchronization request.
+- **F7 resolved.** Checkpoint identity is now the non-reusable `(runId, checkpointId)` tuple, so opaque tokens may safely repeat across runs. The immutable envelope binds that tuple to model, engine, random algorithm, workload, interventions, tick, state sequence, and engine state; reply sequence must equal `stateSequence`. Commit `702b2e0` aligns the validator and evidence with tuple identity rather than incorrectly imposing a string-prefix convention.
+
+### Remaining significant finding R1 — terminal error and snapshot source state are not inspectable by contract
+
+The event-level part of F2 is corrected, but the original packet also requires pre-run versus runtime-error behavior, source-block stability, authoritative inspection, and an implementation-ready T03 boundary. Two independently schema-valid messages still expose a gap.
+
+A running thread may omit its active block from an authoritative full snapshot:
+
+```json
+{
+  "protocolVersion": "os-lab-protocol/1",
+  "requestId": "q",
+  "runId": "r",
+  "sequence": "1",
+  "kind": "state",
+  "payload": {
+    "snapshot": {
+      "machineId": "m",
+      "sequence": "1",
+      "tick": "1",
+      "status": "running",
+      "readyQueue": [],
+      "threads": [{ "threadId": "m:t", "status": "running", "coreId": 0 }],
+      "cores": [{ "coreId": 0, "state": "running", "threadId": "m:t" }],
+      "events": [],
+      "trace": { "truncated": false }
+    }
+  }
+}
+```
+
+This passes the schema and semantic ownership checks even though an authoritative running-state inspection cannot identify the active source block. The omission cannot reliably be reconstructed from events because detailed events may be truncated or absent in experiment mode.
+
+A terminal attributable runtime error may likewise omit both its source and its final snapshot:
+
+```json
+{
+  "protocolVersion": "os-lab-protocol/1",
+  "requestId": "q",
+  "runId": "r",
+  "sequence": "5",
+  "kind": "error",
+  "payload": {
+    "code": "controlBudgetExceeded",
+    "message": "budget",
+    "terminal": true
+  }
+}
+```
+
+This also passes the schema and semantic reply validation. Yet T01 requires control-budget exhaustion to report the offending thread/block and to leave an inspectable run-fatal boundary. T02 retires a terminally errored run, after which an `inspect` for that run is silently ignored. The contract does not require a final state reply before retirement and the error reply cannot carry a snapshot, so conforming implementations can expose neither the required final error/censored states nor the source location.
+
+Competing interpretations are: `blockId` is optional presentation detail versus mandatory authoritative current-block state; and a terminal error is preceded by an unstated state reply, remains inspectable despite retirement, or needs to carry its final snapshot. T03/T07 must not choose among these.
+
+Expected correction: define the meaning and required presence of `threadState.blockId` by lifecycle state (at minimum require the active block for running/blocked states and enough current/next-block state for authoritative inspection), with schema/projection/fixtures that reject a blockless running snapshot. For terminal runtime errors, require the offending `threadId` and `blockId` for `arithmeticOverflow` and `controlBudgetExceeded`, and guarantee transport of the authoritative final snapshot—either in a distinct runtime-error reply variant or in a mandatory ordered state/error sequence before retirement. Global `internalEngine` may remain unattributed. Add a fixture proving the final error/censored snapshot and source survive trace truncation. Affected areas: `program-transport-m1.md` “Replies, snapshots, deltas, and errors”; `$defs.threadState` and the error reply union in the schema; the TypeScript projection; semantic validation; and reference fixtures.
+
+An independent direct schema probe at `702b2e0` returned `true` for both counterexamples, with no validation errors.
+
+### Re-review structural checks
+
+All prescribed commands passed at exact head `702b2e01f584a78c341cc02a2de16f32c0677bbd`:
+
+```text
+npm run contracts:check
+  PASS — 28 contract cases; generated overflow, version, random-algorithm,
+  size, depth, block-count, and sequence-gap controls rejected
+
+npm run typecheck
+  PASS
+
+npm run format:check
+  PASS
+
+git -c safe.directory=D:/codex/_projects/OS-laboratory diff --check
+  PASS
+```
+
+### Final re-review verdict
+
+**CHANGES REQUIRED**
+
+F1–F7 are resolved, but R1 remains significant under the original acceptance rule: authoritative snapshot/source state and the inspectable runtime-error boundary still admit incompatible outcomes. T03 must not start until R1 is corrected and independently re-reviewed.

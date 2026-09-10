@@ -191,9 +191,6 @@ function validateReply(reply) {
       errors.push("reply/delta sequence mismatch");
   }
   if (reply.kind === "checkpoint") {
-    if (!reply.payload.checkpointId.startsWith(`${reply.runId}:`)) {
-      errors.push("checkpoint outside run namespace");
-    }
     if (reply.sequence !== reply.payload.stateSequence) {
       errors.push("checkpoint state sequence mismatch");
     }
@@ -385,14 +382,14 @@ function applyDelta(baseSnapshot, delta) {
       const index = result.threads.findIndex(
         (thread) => thread.threadId === operation.thread.threadId,
       );
-      if (index === -1) result.threads.push(structuredClone(operation.thread));
-      else result.threads[index] = structuredClone(operation.thread);
+      if (index === -1) return undefined;
+      result.threads[index] = structuredClone(operation.thread);
     } else if (operation.op === "setCore") {
       const index = result.cores.findIndex(
         (core) => core.coreId === operation.core.coreId,
       );
-      if (index === -1) result.cores.push(structuredClone(operation.core));
-      else result.cores[index] = structuredClone(operation.core);
+      if (index === -1) return undefined;
+      result.cores[index] = structuredClone(operation.core);
     } else if (operation.op === "replaceReadyQueue") {
       result.readyQueue = [...operation.threadIds];
     } else if (operation.op === "appendEvents") {

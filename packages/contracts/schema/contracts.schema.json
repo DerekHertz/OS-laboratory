@@ -1,0 +1,1270 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://os-laboratory.local/schema/contracts-v1.json",
+  "title": "OS Laboratory M1 contracts",
+  "oneOf": [
+    { "$ref": "#/$defs/program" },
+    { "$ref": "#/$defs/workload" },
+    { "$ref": "#/$defs/command" },
+    { "$ref": "#/$defs/reply" }
+  ],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9._:~-]{0,127}$"
+    },
+    "text128": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "text256": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "u64": { "type": "string", "format": "uint64-decimal" },
+    "positiveU64": { "type": "string", "format": "positive-uint64-decimal" },
+    "i64": { "type": "string", "format": "int64-decimal" },
+    "operand": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": { "literal": { "$ref": "#/$defs/positiveU64" } },
+          "required": ["literal"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": { "parameter": { "$ref": "#/$defs/id" } },
+          "required": ["parameter"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "parameter": {
+      "type": "object",
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "minimum": { "$ref": "#/$defs/i64" },
+        "default": { "$ref": "#/$defs/i64" },
+        "maximum": { "$ref": "#/$defs/i64" }
+      },
+      "required": ["id", "minimum", "default", "maximum"],
+      "additionalProperties": false
+    },
+    "block": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "blockId": { "$ref": "#/$defs/id" },
+            "op": { "const": "compute" },
+            "duration": { "$ref": "#/$defs/operand" }
+          },
+          "required": ["blockId", "op", "duration"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "blockId": { "$ref": "#/$defs/id" },
+            "op": { "const": "ioWait" },
+            "duration": { "$ref": "#/$defs/operand" }
+          },
+          "required": ["blockId", "op", "duration"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "blockId": { "$ref": "#/$defs/id" },
+            "op": { "const": "yield" }
+          },
+          "required": ["blockId", "op"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "blockId": { "$ref": "#/$defs/id" },
+            "op": { "const": "repeat" },
+            "count": { "$ref": "#/$defs/operand" },
+            "body": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/block" },
+              "maxItems": 10000
+            }
+          },
+          "required": ["blockId", "op", "count", "body"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "blockId": { "$ref": "#/$defs/id" },
+            "op": { "const": "end" }
+          },
+          "required": ["blockId", "op"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "program": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": { "const": "os-lab-program/1" },
+        "programId": { "$ref": "#/$defs/id" },
+        "name": { "$ref": "#/$defs/text128" },
+        "parameters": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/parameter" },
+          "maxItems": 128
+        },
+        "blocks": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/block" },
+          "minItems": 1,
+          "maxItems": 10000
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "programId",
+        "name",
+        "parameters",
+        "blocks"
+      ],
+      "additionalProperties": false
+    },
+    "policy": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": { "kind": { "const": "fcfs" } },
+          "required": ["kind"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": { "const": "roundRobin" },
+            "quantum": { "$ref": "#/$defs/positiveU64" }
+          },
+          "required": ["kind", "quantum"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "threadInput": {
+      "type": "object",
+      "properties": {
+        "threadId": { "$ref": "#/$defs/id" },
+        "programId": { "$ref": "#/$defs/id" },
+        "arrival": { "$ref": "#/$defs/u64" },
+        "parameters": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/id" },
+          "additionalProperties": { "$ref": "#/$defs/i64" },
+          "maxProperties": 128
+        }
+      },
+      "required": ["threadId", "programId", "arrival", "parameters"],
+      "additionalProperties": false
+    },
+    "workload": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": { "const": "os-lab-workload/1" },
+        "applicationVersion": { "$ref": "#/$defs/id" },
+        "modelVersion": { "const": "sched.m1/revision-1" },
+        "engineVersion": { "const": "sim-engine.0.1.0" },
+        "randomAlgorithmVersion": { "const": "none.v1" },
+        "seed": { "$ref": "#/$defs/u64" },
+        "machine": {
+          "type": "object",
+          "properties": {
+            "machineId": { "$ref": "#/$defs/id" },
+            "cores": { "type": "integer", "minimum": 1, "maximum": 64 },
+            "switchCost": { "$ref": "#/$defs/u64" },
+            "controlOperationBudgetPerTick": { "$ref": "#/$defs/positiveU64" }
+          },
+          "required": [
+            "machineId",
+            "cores",
+            "switchCost",
+            "controlOperationBudgetPerTick"
+          ],
+          "additionalProperties": false
+        },
+        "policy": { "$ref": "#/$defs/policy" },
+        "programs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/program" },
+          "minItems": 1,
+          "maxItems": 10000
+        },
+        "threads": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/threadInput" },
+          "minItems": 1,
+          "maxItems": 10000
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "applicationVersion",
+        "modelVersion",
+        "engineVersion",
+        "randomAlgorithmVersion",
+        "seed",
+        "machine",
+        "policy",
+        "programs",
+        "threads"
+      ],
+      "additionalProperties": false
+    },
+    "commandIdentity": {
+      "type": "object",
+      "properties": {
+        "protocolVersion": { "const": "os-lab-protocol/1" },
+        "requestId": { "$ref": "#/$defs/id" },
+        "runId": { "$ref": "#/$defs/id" }
+      },
+      "required": ["protocolVersion", "requestId", "runId"]
+    },
+    "command": {
+      "oneOf": [
+        { "$ref": "#/$defs/createCommand" },
+        { "$ref": "#/$defs/simpleCommand" },
+        { "$ref": "#/$defs/advanceCommand" },
+        { "$ref": "#/$defs/inspectCommand" },
+        { "$ref": "#/$defs/checkpointCommand" },
+        { "$ref": "#/$defs/interveneCommand" }
+      ]
+    },
+    "createCommand": {
+      "type": "object",
+      "allOf": [
+        { "$ref": "#/$defs/commandIdentity" },
+        {
+          "type": "object",
+          "properties": {
+            "kind": { "const": "create" },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "workload": { "$ref": "#/$defs/workload" },
+                "traceMode": { "enum": ["inspection", "experiment"] }
+              },
+              "required": ["workload", "traceMode"],
+              "additionalProperties": false
+            }
+          },
+          "required": ["kind", "payload"]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "simpleCommand": {
+      "type": "object",
+      "allOf": [
+        { "$ref": "#/$defs/commandIdentity" },
+        {
+          "type": "object",
+          "properties": {
+            "kind": { "enum": ["start", "pause", "cancel"] },
+            "payload": { "type": "object", "maxProperties": 0 }
+          },
+          "required": ["kind", "payload"]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "advanceCommand": {
+      "type": "object",
+      "allOf": [
+        { "$ref": "#/$defs/commandIdentity" },
+        {
+          "type": "object",
+          "properties": {
+            "kind": { "const": "advance" },
+            "payload": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "mode": { "enum": ["globalEvent", "activeTick"] }
+                  },
+                  "required": ["mode"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "mode": { "const": "threadInstruction" },
+                    "threadId": { "$ref": "#/$defs/id" }
+                  },
+                  "required": ["mode", "threadId"],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "required": ["kind", "payload"]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "inspectCommand": {
+      "type": "object",
+      "allOf": [
+        { "$ref": "#/$defs/commandIdentity" },
+        {
+          "type": "object",
+          "properties": {
+            "kind": { "const": "inspect" },
+            "payload": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": { "mode": { "const": "full" } },
+                  "required": ["mode"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "mode": { "const": "delta" },
+                    "afterSequence": { "$ref": "#/$defs/u64" }
+                  },
+                  "required": ["mode", "afterSequence"],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "required": ["kind", "payload"]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "checkpointCommand": {
+      "type": "object",
+      "allOf": [
+        { "$ref": "#/$defs/commandIdentity" },
+        {
+          "type": "object",
+          "properties": {
+            "kind": { "const": "checkpoint" },
+            "payload": {
+              "type": "object",
+              "properties": { "label": { "$ref": "#/$defs/text256" } },
+              "additionalProperties": false
+            }
+          },
+          "required": ["kind", "payload"]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "interveneCommand": {
+      "type": "object",
+      "allOf": [
+        { "$ref": "#/$defs/commandIdentity" },
+        {
+          "type": "object",
+          "properties": {
+            "kind": { "const": "intervene" },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "kind": { "const": "setTraceMode" },
+                "traceMode": { "enum": ["inspection", "experiment"] }
+              },
+              "required": ["kind", "traceMode"],
+              "additionalProperties": false
+            }
+          },
+          "required": ["kind", "payload"]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "threadState": {
+      "type": "object",
+      "properties": {
+        "threadId": { "$ref": "#/$defs/id" },
+        "status": {
+          "enum": [
+            "notArrived",
+            "ready",
+            "dispatching",
+            "running",
+            "blocked",
+            "terminated",
+            "error",
+            "censored"
+          ]
+        },
+        "coreId": { "type": "integer", "minimum": 0, "maximum": 63 },
+        "blockId": { "$ref": "#/$defs/id" }
+      },
+      "required": ["threadId", "status", "blockId"],
+      "additionalProperties": false
+    },
+    "coreState": {
+      "type": "object",
+      "properties": {
+        "coreId": { "type": "integer", "minimum": 0, "maximum": 63 },
+        "state": { "enum": ["idle", "dispatching", "running"] },
+        "threadId": { "$ref": "#/$defs/id" }
+      },
+      "required": ["coreId", "state"],
+      "additionalProperties": false
+    },
+    "emptyPayload": {
+      "type": "object",
+      "maxProperties": 0
+    },
+    "coreGenerationPayload": {
+      "type": "object",
+      "properties": {
+        "coreId": { "type": "integer", "minimum": 0, "maximum": 63 },
+        "generation": { "$ref": "#/$defs/u64" }
+      },
+      "required": ["coreId", "generation"],
+      "additionalProperties": false
+    },
+    "event": {
+      "type": "object",
+      "properties": {
+        "eventId": { "$ref": "#/$defs/id" },
+        "eventSequence": { "$ref": "#/$defs/positiveU64" },
+        "tick": { "$ref": "#/$defs/u64" },
+        "kind": {
+          "enum": [
+            "arrival",
+            "dispatchStarted",
+            "dispatchCompleted",
+            "computeStarted",
+            "computeCompleted",
+            "ioSubmitted",
+            "ioCompleted",
+            "yielded",
+            "quantumExpired",
+            "terminated",
+            "runtimeError",
+            "intervention",
+            "runCompleted"
+          ]
+        },
+        "entityIds": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/id" },
+          "uniqueItems": true
+        },
+        "threadId": { "$ref": "#/$defs/id" },
+        "blockId": { "$ref": "#/$defs/id" },
+        "causalParentIds": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/id" },
+          "uniqueItems": true
+        },
+        "payload": { "type": "object" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "enum": [
+                  "arrival",
+                  "dispatchStarted",
+                  "dispatchCompleted",
+                  "computeStarted",
+                  "computeCompleted",
+                  "ioSubmitted",
+                  "ioCompleted",
+                  "yielded",
+                  "quantumExpired",
+                  "terminated"
+                ]
+              }
+            },
+            "required": ["kind"]
+          },
+          "then": {
+            "type": "object",
+            "properties": { "threadId": { "$ref": "#/$defs/id" } },
+            "required": ["threadId"]
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "enum": [
+                  "computeStarted",
+                  "computeCompleted",
+                  "ioSubmitted",
+                  "ioCompleted",
+                  "yielded",
+                  "quantumExpired",
+                  "terminated"
+                ]
+              }
+            },
+            "required": ["kind"]
+          },
+          "then": {
+            "type": "object",
+            "properties": { "blockId": { "$ref": "#/$defs/id" } },
+            "required": ["blockId"]
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "enum": [
+                  "arrival",
+                  "dispatchStarted",
+                  "dispatchCompleted",
+                  "intervention",
+                  "runCompleted"
+                ]
+              }
+            },
+            "required": ["kind"]
+          },
+          "then": {
+            "type": "object",
+            "not": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": { "blockId": { "$ref": "#/$defs/id" } },
+                  "required": ["blockId"]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": { "enum": ["intervention", "runCompleted"] },
+                    "threadId": { "$ref": "#/$defs/id" }
+                  },
+                  "required": ["kind", "threadId"]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "kind": { "enum": ["ioCompleted", "yielded", "terminated"] }
+            },
+            "required": ["kind"]
+          },
+          "then": {
+            "type": "object",
+            "properties": { "payload": { "$ref": "#/$defs/emptyPayload" } }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "kind": { "const": "runtimeError" },
+              "payload": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "enum": ["arithmeticOverflow", "controlBudgetExceeded"]
+                  }
+                },
+                "required": ["code"]
+              }
+            },
+            "required": ["kind", "payload"]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "threadId": { "$ref": "#/$defs/id" },
+              "blockId": { "$ref": "#/$defs/id" }
+            },
+            "required": ["threadId", "blockId"]
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "kind": { "const": "runtimeError" },
+              "payload": {
+                "type": "object",
+                "properties": { "code": { "const": "internalEngine" } },
+                "required": ["code"]
+              }
+            },
+            "required": ["kind", "payload"]
+          },
+          "then": {
+            "type": "object",
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "threadId": { "$ref": "#/$defs/id" },
+                  "blockId": { "$ref": "#/$defs/id" }
+                },
+                "required": ["threadId", "blockId"]
+              },
+              {
+                "not": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "threadId": { "$ref": "#/$defs/id" }
+                      },
+                      "required": ["threadId"]
+                    },
+                    {
+                      "type": "object",
+                      "properties": { "blockId": { "$ref": "#/$defs/id" } },
+                      "required": ["blockId"]
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": { "kind": { "const": "arrival" } },
+            "required": ["kind"]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "payload": {
+                "type": "object",
+                "properties": {
+                  "declarationIndex": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9999
+                  }
+                },
+                "required": ["declarationIndex"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "enum": [
+                  "dispatchStarted",
+                  "dispatchCompleted",
+                  "computeStarted",
+                  "computeCompleted",
+                  "quantumExpired"
+                ]
+              }
+            },
+            "required": ["kind"]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "payload": { "$ref": "#/$defs/coreGenerationPayload" }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": { "kind": { "const": "ioSubmitted" } },
+            "required": ["kind"]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "payload": {
+                "type": "object",
+                "properties": {
+                  "duration": { "$ref": "#/$defs/positiveU64" },
+                  "completionTick": { "$ref": "#/$defs/u64" }
+                },
+                "required": ["duration", "completionTick"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": { "kind": { "const": "runtimeError" } },
+            "required": ["kind"]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "payload": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "enum": [
+                      "arithmeticOverflow",
+                      "controlBudgetExceeded",
+                      "internalEngine"
+                    ]
+                  }
+                },
+                "required": ["code"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": { "kind": { "const": "intervention" } },
+            "required": ["kind"]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "payload": {
+                "type": "object",
+                "properties": {
+                  "kind": { "const": "setTraceMode" },
+                  "traceMode": { "enum": ["inspection", "experiment"] }
+                },
+                "required": ["kind", "traceMode"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": { "kind": { "const": "runCompleted" } },
+            "required": ["kind"]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "payload": {
+                "type": "object",
+                "properties": {
+                  "completedThreads": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 10000
+                  },
+                  "erroredThreads": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 10000
+                  },
+                  "censoredThreads": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 10000
+                  }
+                },
+                "required": [
+                  "completedThreads",
+                  "erroredThreads",
+                  "censoredThreads"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      ],
+      "required": [
+        "eventId",
+        "eventSequence",
+        "tick",
+        "kind",
+        "entityIds",
+        "causalParentIds",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "traceState": {
+      "type": "object",
+      "properties": {
+        "truncated": { "type": "boolean" },
+        "firstEventId": { "$ref": "#/$defs/id" },
+        "lastEventId": { "$ref": "#/$defs/id" }
+      },
+      "required": ["truncated"],
+      "additionalProperties": false
+    },
+    "snapshot": {
+      "type": "object",
+      "properties": {
+        "machineId": { "$ref": "#/$defs/id" },
+        "sequence": { "$ref": "#/$defs/u64" },
+        "tick": { "$ref": "#/$defs/u64" },
+        "status": {
+          "enum": [
+            "created",
+            "running",
+            "paused",
+            "completed",
+            "cancelled",
+            "error"
+          ]
+        },
+        "readyQueue": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/id" },
+          "uniqueItems": true,
+          "maxItems": 10000
+        },
+        "threads": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/threadState" },
+          "maxItems": 10000
+        },
+        "cores": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/coreState" },
+          "minItems": 1,
+          "maxItems": 64
+        },
+        "events": { "type": "array", "items": { "$ref": "#/$defs/event" } },
+        "trace": { "$ref": "#/$defs/traceState" }
+      },
+      "required": [
+        "machineId",
+        "sequence",
+        "tick",
+        "status",
+        "readyQueue",
+        "threads",
+        "cores",
+        "events",
+        "trace"
+      ],
+      "additionalProperties": false
+    },
+    "deltaOperation": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "op": { "const": "replaceRun" },
+            "status": {
+              "enum": [
+                "created",
+                "running",
+                "paused",
+                "completed",
+                "cancelled",
+                "error"
+              ]
+            },
+            "tick": { "$ref": "#/$defs/u64" }
+          },
+          "required": ["op", "status", "tick"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": { "const": "setThread" },
+            "thread": { "$ref": "#/$defs/threadState" }
+          },
+          "required": ["op", "thread"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": { "const": "setCore" },
+            "core": { "$ref": "#/$defs/coreState" }
+          },
+          "required": ["op", "core"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": { "const": "replaceReadyQueue" },
+            "threadIds": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/id" },
+              "uniqueItems": true
+            }
+          },
+          "required": ["op", "threadIds"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": { "const": "appendEvents" },
+            "events": { "type": "array", "items": { "$ref": "#/$defs/event" } }
+          },
+          "required": ["op", "events"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": { "const": "replaceTrace" },
+            "trace": { "$ref": "#/$defs/traceState" }
+          },
+          "required": ["op", "trace"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "delta": {
+      "type": "object",
+      "properties": {
+        "baseSequence": { "$ref": "#/$defs/u64" },
+        "sequence": { "$ref": "#/$defs/u64" },
+        "operations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/deltaOperation" },
+          "minItems": 1
+        }
+      },
+      "required": ["baseSequence", "sequence", "operations"],
+      "additionalProperties": false
+    },
+    "replyIdentity": {
+      "type": "object",
+      "properties": {
+        "protocolVersion": { "const": "os-lab-protocol/1" },
+        "requestId": { "$ref": "#/$defs/id" },
+        "runId": { "$ref": "#/$defs/id" },
+        "sequence": { "$ref": "#/$defs/u64" }
+      },
+      "required": ["protocolVersion", "requestId", "runId", "sequence"]
+    },
+    "reply": {
+      "oneOf": [
+        {
+          "type": "object",
+          "allOf": [
+            { "$ref": "#/$defs/replyIdentity" },
+            {
+              "type": "object",
+              "properties": {
+                "kind": { "const": "ack" },
+                "payload": {
+                  "type": "object",
+                  "properties": {
+                    "commandKind": {
+                      "enum": [
+                        "create",
+                        "start",
+                        "pause",
+                        "advance",
+                        "inspect",
+                        "checkpoint",
+                        "cancel",
+                        "intervene"
+                      ]
+                    }
+                  },
+                  "required": ["commandKind"],
+                  "additionalProperties": false
+                }
+              },
+              "required": ["kind", "payload"]
+            }
+          ],
+          "unevaluatedProperties": false
+        },
+        {
+          "type": "object",
+          "allOf": [
+            { "$ref": "#/$defs/replyIdentity" },
+            {
+              "type": "object",
+              "properties": {
+                "kind": { "const": "checkpoint" },
+                "payload": {
+                  "type": "object",
+                  "properties": {
+                    "checkpointId": { "$ref": "#/$defs/id" },
+                    "tick": { "$ref": "#/$defs/u64" },
+                    "stateSequence": { "$ref": "#/$defs/u64" },
+                    "modelVersion": { "const": "sched.m1/revision-1" },
+                    "engineVersion": { "const": "sim-engine.0.1.0" },
+                    "randomAlgorithmVersion": { "const": "none.v1" }
+                  },
+                  "required": [
+                    "checkpointId",
+                    "tick",
+                    "stateSequence",
+                    "modelVersion",
+                    "engineVersion",
+                    "randomAlgorithmVersion"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": ["kind", "payload"]
+            }
+          ],
+          "unevaluatedProperties": false
+        },
+        {
+          "type": "object",
+          "allOf": [
+            { "$ref": "#/$defs/replyIdentity" },
+            {
+              "type": "object",
+              "properties": {
+                "kind": { "const": "progress" },
+                "payload": {
+                  "type": "object",
+                  "properties": {
+                    "completedUnits": { "$ref": "#/$defs/u64" },
+                    "totalUnits": { "$ref": "#/$defs/u64" }
+                  },
+                  "required": ["completedUnits"],
+                  "additionalProperties": false
+                }
+              },
+              "required": ["kind", "payload"]
+            }
+          ],
+          "unevaluatedProperties": false
+        },
+        {
+          "type": "object",
+          "allOf": [
+            { "$ref": "#/$defs/replyIdentity" },
+            {
+              "type": "object",
+              "properties": {
+                "kind": { "const": "state" },
+                "payload": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "snapshot": { "$ref": "#/$defs/snapshot" }
+                      },
+                      "required": ["snapshot"],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": { "delta": { "$ref": "#/$defs/delta" } },
+                      "required": ["delta"],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              },
+              "required": ["kind", "payload"]
+            }
+          ],
+          "unevaluatedProperties": false
+        },
+        {
+          "type": "object",
+          "allOf": [
+            { "$ref": "#/$defs/replyIdentity" },
+            {
+              "type": "object",
+              "properties": {
+                "kind": { "enum": ["completed", "cancelled"] },
+                "payload": {
+                  "type": "object",
+                  "properties": { "snapshot": { "$ref": "#/$defs/snapshot" } },
+                  "required": ["snapshot"],
+                  "additionalProperties": false
+                }
+              },
+              "required": ["kind", "payload"]
+            }
+          ],
+          "unevaluatedProperties": false
+        },
+        {
+          "type": "object",
+          "allOf": [
+            { "$ref": "#/$defs/replyIdentity" },
+            {
+              "type": "object",
+              "properties": {
+                "kind": { "const": "error" },
+                "payload": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "unsupportedProtocol",
+                        "invalidCommand",
+                        "unsupportedSchema",
+                        "unsupportedModel",
+                        "unsupportedEngine",
+                        "unsupportedRandomAlgorithm",
+                        "resourceLimit",
+                        "arithmeticOverflow",
+                        "controlBudgetExceeded",
+                        "invalidState",
+                        "checkpointFailed",
+                        "internalEngine"
+                      ]
+                    },
+                    "message": { "$ref": "#/$defs/text256" },
+                    "terminal": { "type": "boolean" },
+                    "receivedProtocolVersion": { "$ref": "#/$defs/text128" },
+                    "threadId": { "$ref": "#/$defs/id" },
+                    "blockId": { "$ref": "#/$defs/id" },
+                    "snapshot": { "$ref": "#/$defs/snapshot" }
+                  },
+                  "required": ["code", "message", "terminal"],
+                  "allOf": [
+                    {
+                      "if": {
+                        "type": "object",
+                        "properties": {
+                          "code": {
+                            "enum": [
+                              "arithmeticOverflow",
+                              "controlBudgetExceeded",
+                              "internalEngine"
+                            ]
+                          }
+                        },
+                        "required": ["code"]
+                      },
+                      "then": {
+                        "type": "object",
+                        "properties": {
+                          "terminal": { "const": true },
+                          "snapshot": { "$ref": "#/$defs/snapshot" }
+                        },
+                        "required": ["terminal", "snapshot"]
+                      },
+                      "else": {
+                        "type": "object",
+                        "properties": { "terminal": { "const": false } },
+                        "required": ["terminal"],
+                        "not": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "snapshot": { "$ref": "#/$defs/snapshot" }
+                              },
+                              "required": ["snapshot"]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "threadId": { "$ref": "#/$defs/id" }
+                              },
+                              "required": ["threadId"]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "blockId": { "$ref": "#/$defs/id" }
+                              },
+                              "required": ["blockId"]
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "type": "object",
+                        "properties": {
+                          "code": {
+                            "enum": [
+                              "arithmeticOverflow",
+                              "controlBudgetExceeded"
+                            ]
+                          }
+                        },
+                        "required": ["code"]
+                      },
+                      "then": {
+                        "type": "object",
+                        "properties": {
+                          "threadId": { "$ref": "#/$defs/id" },
+                          "blockId": { "$ref": "#/$defs/id" }
+                        },
+                        "required": ["threadId", "blockId"]
+                      }
+                    },
+                    {
+                      "if": {
+                        "type": "object",
+                        "properties": { "code": { "const": "internalEngine" } },
+                        "required": ["code"]
+                      },
+                      "then": {
+                        "type": "object",
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "threadId": { "$ref": "#/$defs/id" },
+                              "blockId": { "$ref": "#/$defs/id" }
+                            },
+                            "required": ["threadId", "blockId"]
+                          },
+                          {
+                            "type": "object",
+                            "not": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "threadId": { "$ref": "#/$defs/id" }
+                                  },
+                                  "required": ["threadId"]
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "blockId": { "$ref": "#/$defs/id" }
+                                  },
+                                  "required": ["blockId"]
+                                }
+                              ]
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": ["kind", "payload"]
+            }
+          ],
+          "unevaluatedProperties": false
+        }
+      ]
+    }
+  }
+}

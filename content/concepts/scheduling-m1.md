@@ -84,6 +84,8 @@ Rules inside that order:
 
 The configured `control_operation_budget_per_tick` is one run-wide count, reset to zero only when processing advances to a different simulated tick. Every executed zero-time program operation consumes one unit, including repeat condition/iteration bookkeeping, yield, I/O submission, and end; dispatch itself does not. The count spans all threads, phases, and repeated phase-4 scans and is not reset by a thread or dispatch-generation change. If the next zero-time operation would exceed the positive configured limit, it is not executed: report budget exhaustion against that thread and source block and enter the run-fatal boundary above. This scope guarantees that zero-time redispatch cycles cannot prevent phase-4 closure indefinitely.
 
+Repeat charging is precise: each iteration consumes one control operation immediately before entering its body, attributed to the repeat block. Initial entry is the first iteration charge; completing a body and exiting after the final iteration add no separate charge. Thus an empty repeat with count N consumes exactly N operations. Operations inside a nonempty body consume their own units. This is the iteration-evaluation convention exercised by C09, not a host-language loop cost.
+
 ## Policy rules
 
 FCFS never preempts a running or dispatching thread for arrival or wakeup. It releases a core only at yield, I/O submission, end, or error. A sequence of compute instructions separated only by zero-time repeat/control boundaries remains one FCFS possession.

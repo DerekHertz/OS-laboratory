@@ -584,7 +584,63 @@ if (canApplyDelta("8", { baseSequence: "7", sequence: "9" })) {
   console.error("negative control: sequence gap was accepted");
 }
 
+// T03 pre-implementation correction: generated identifiers retain a full
+// 128-character machine prefix plus a u64 suffix, without widening authored IDs.
+const generatedEventValidator = ajv.compile({
+  $ref: `${schema.$id}#/$defs/event`,
+});
+const generatedTraceValidator = ajv.compile({
+  $ref: `${schema.$id}#/$defs/traceState`,
+});
+const authoredIdValidator = ajv.compile({ $ref: `${schema.$id}#/$defs/id` });
+const longMachine = "M".repeat(128);
+const generatedEvent = {
+  eventId: `${longMachine}:event:18446744073709551615`,
+  eventSequence: "18446744073709551615",
+  tick: "0",
+  kind: "runCompleted",
+  entityIds: [`${longMachine}:core:63`],
+  causalParentIds: [`${longMachine}:event:18446744073709551614`],
+  payload: { completedThreads: 0, erroredThreads: 0, censoredThreads: 0 },
+};
+const generatedChecks = [
+  [
+    "full machine and u64 event suffix",
+    generatedEventValidator(generatedEvent),
+  ],
+  [
+    "trace retains long generated IDs",
+    generatedTraceValidator({
+      truncated: true,
+      firstEventId: generatedEvent.eventId,
+      lastEventId: generatedEvent.eventId,
+    }),
+  ],
+  ["authored 128 accepted", authoredIdValidator("A".repeat(128))],
+  ["authored 129 rejected", !authoredIdValidator("A".repeat(129))],
+];
+for (const field of ["eventId", "entityIds", "causalParentIds"]) {
+  for (const [length, expected] of [
+    [160, true],
+    [161, false],
+  ]) {
+    const candidate = structuredClone(generatedEvent);
+    candidate[field] =
+      field === "eventId" ? "A".repeat(length) : ["A".repeat(length)];
+    generatedChecks.push([
+      `${field} length ${length}`,
+      generatedEventValidator(candidate) === expected,
+    ]);
+  }
+}
+for (const [name, passed] of generatedChecks) {
+  if (!passed) {
+    failed += 1;
+    console.error(`generated-ID contract check failed: ${name}`);
+  }
+}
+
 if (failed) process.exit(1);
 console.log(
-  `${fixture.cases.length} contract cases passed; overflow, version, random-algorithm, size, depth, block-count, and sequence-gap negative controls rejected`,
+  `${fixture.cases.length} contract cases and ${generatedChecks.length} generated-ID boundary checks passed; overflow, version, random-algorithm, size, depth, block-count, and sequence-gap negative controls rejected`,
 );

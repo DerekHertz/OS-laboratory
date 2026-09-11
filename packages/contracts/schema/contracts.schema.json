@@ -13,6 +13,10 @@
       "type": "string",
       "pattern": "^[A-Za-z][A-Za-z0-9._:~-]{0,127}$"
     },
+    "generatedId": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9._:~-]{0,159}$"
+    },
     "text128": { "type": "string", "minLength": 1, "maxLength": 128 },
     "text256": { "type": "string", "minLength": 1, "maxLength": 256 },
     "u64": { "type": "string", "format": "uint64-decimal" },
@@ -432,7 +436,7 @@
     "event": {
       "type": "object",
       "properties": {
-        "eventId": { "$ref": "#/$defs/id" },
+        "eventId": { "$ref": "#/$defs/generatedId" },
         "eventSequence": { "$ref": "#/$defs/positiveU64" },
         "tick": { "$ref": "#/$defs/u64" },
         "kind": {
@@ -454,14 +458,14 @@
         },
         "entityIds": {
           "type": "array",
-          "items": { "$ref": "#/$defs/id" },
+          "items": { "$ref": "#/$defs/generatedId" },
           "uniqueItems": true
         },
         "threadId": { "$ref": "#/$defs/id" },
         "blockId": { "$ref": "#/$defs/id" },
         "causalParentIds": {
           "type": "array",
-          "items": { "$ref": "#/$defs/id" },
+          "items": { "$ref": "#/$defs/generatedId" },
           "uniqueItems": true
         },
         "payload": { "type": "object" }
@@ -808,8 +812,8 @@
       "type": "object",
       "properties": {
         "truncated": { "type": "boolean" },
-        "firstEventId": { "$ref": "#/$defs/id" },
-        "lastEventId": { "$ref": "#/$defs/id" }
+        "firstEventId": { "$ref": "#/$defs/generatedId" },
+        "lastEventId": { "$ref": "#/$defs/generatedId" }
       },
       "required": ["truncated"],
       "additionalProperties": false

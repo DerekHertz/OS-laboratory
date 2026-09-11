@@ -8,6 +8,7 @@ export const RANDOM_ALGORITHM_VERSION = "none.v1" as const;
 export type Uint64String = string & { readonly __uint64: unique symbol };
 export type Int64String = string & { readonly __int64: unique symbol };
 export type ContractId = string & { readonly __contractId: unique symbol };
+export type GeneratedId = string & { readonly __generatedId: unique symbol };
 
 export type Operand = { literal: Uint64String } | { parameter: ContractId };
 
@@ -109,11 +110,11 @@ export type ThreadStatus =
   | "censored";
 
 interface EventBase {
-  eventId: ContractId;
+  eventId: GeneratedId;
   eventSequence: Uint64String;
   tick: Uint64String;
-  entityIds: ContractId[];
-  causalParentIds: ContractId[];
+  entityIds: Array<ContractId | GeneratedId>;
+  causalParentIds: GeneratedId[];
 }
 
 type ThreadEventBase = EventBase & {
@@ -198,8 +199,8 @@ export interface Snapshot {
   events: CanonicalEvent[];
   trace: {
     truncated: boolean;
-    firstEventId?: ContractId;
-    lastEventId?: ContractId;
+    firstEventId?: GeneratedId;
+    lastEventId?: GeneratedId;
   };
 }
 

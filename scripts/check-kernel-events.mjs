@@ -120,6 +120,25 @@ for (const { name, workload, events } of artifact.cases) {
     kinds.add(event.kind);
   }
 }
+for (const kind of [
+  "arrival",
+  "dispatchStarted",
+  "dispatchCompleted",
+  "computeStarted",
+  "computeCompleted",
+  "ioSubmitted",
+  "ioCompleted",
+  "yielded",
+  "quantumExpired",
+  "terminated",
+  "runtimeError",
+  "runCompleted",
+]) {
+  requireThat(
+    kinds.has(kind),
+    `Real kernel artifact lacks implemented event kind ${kind}`,
+  );
+}
 console.log(
   `${artifact.cases.length} real kernel cases / ${eventCount} events conform to shared schema, source identity and canonical metadata (${[...kinds].sort().join(", ")})`,
 );

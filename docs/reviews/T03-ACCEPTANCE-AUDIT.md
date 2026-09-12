@@ -28,3 +28,9 @@ The committed repeat/generated-ID corrections (`1f1adb1`, `323af26`) resolve the
 10. Mutate phase order, budget reset-per-dispatch, or generation check; the corresponding independently expected case must fail, then restore/rerun.
 
 No unresolved semantic blocker remains once agreed canonical metadata/counter decisions are recorded. Fresh implementation review is still required.
+
+## Resumption: earliest useful boundary audit
+
+After the account-limit interruption, the same read-only auditor accepted scheduling only the next relevant compute/quantum boundary. Compute min(remaining compute, remaining quantum) before checked tick addition; on equality enqueue completion before expiration. After an earlier compute boundary, subtract useful service and reconsider the next instruction with the remaining grant. This avoids speculative deadlines that can never affect the run.
+
+Independent u64MAX cases: arrivalMAX-5, quantumMAX, compute2/end completesMAX-3; arrivalMAX-5, quantum2, compute10 expiresMAX-3 andMAX-1, then overflows atMAX-1 scheduling the next reachable boundary; arrivalMAX-2, quantum2, compute2/end completesMAX with a stale expiration. For equality continuing into another compute at zero remaining grant, an applicable phase3 expiration must remain (or be refreshed for the new instruction occurrence), and no phase1 completion may be inserted retroactively. Explicit stale-token injection remains required because the optimization naturally creates fewer stale tokens. The author must record and test the implementation decision.

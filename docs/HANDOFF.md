@@ -15,3 +15,7 @@ Agents: t03_kernel finished at e269ee1; t03_acceptance finished read-only audit 
 Next: collect full check and fresh review; fix/re-review any blockers, record final results, commit source/status. Only then prepare T03 PR within authorized workflow; no remote T03 push/CI/merge has happened. Keep main unchanged until reviewed integration. T04 and T05 become the next parallel implementation candidates after T03 lands.
 
 Checkpoint source and refresh this handoff before lengthy stages and on any usage warning. Never invent remaining quota or assume model switching bypasses it. Keep context-limit discipline separate from account usage.
+
+Latest check update: full session80185 exited1 (initial browser worker timeout;other2 passed; all earlier stages passed). Verified Vite preview processes47536/47588 terminated via native Process.Kill after Stop-Process errored. Unchanged browser rerun session65259 is active; preview process IDs logged53100/42496/7052. No assertions or application sources changed. Independent review still pending. User latest quota snapshot:29% remaining.
+
+Browser rerun completed:3 passed(59.0s), exit0 after verified preview processes42496/7052 were stopped. All required stages now have passing evidence, with the initial whole-check failure preserved honestly. No command session remains active. Remaining work: independent verdict, any mandatory fixes/review, final checkpoint and PR preparation if accepted.

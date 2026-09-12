@@ -1,4 +1,6 @@
-//! Build probe only. No simulation semantics are defined in T00.
+//! Authoritative M1 event kernel and immutable program interpreter.
+pub mod input;
+pub mod kernel;
 
 /// Adds unsigned 32-bit operands modulo 2^32 for the infrastructure smoke test.
 pub fn build_probe(left: u32, right: u32) -> u32 {

@@ -102,9 +102,10 @@ fn finish(k: &mut Kernel<TestPolicy>) -> Boundary {
     panic!("test failed to terminate within independent 1000-tick boundary cap")
 }
 fn kinds_at(events: &[Value], tick: u64) -> Vec<(String, String)> {
+    let tick = tick.to_string();
     events
         .iter()
-        .filter(|e| e["tick"] == tick.to_string())
+        .filter(|e| e["tick"] == tick)
         .map(|e| {
             (
                 e["kind"].as_str().unwrap().to_owned(),
@@ -183,43 +184,43 @@ fn reference_lifecycle_intervals_with_test_only_policy() {
         );
         for ledger in case["coreLedgers"].as_array().unwrap() {
             let core = ledger["core"].as_u64().unwrap() as usize;
-            let actual: Vec<Value> =
-                b.intervals
-                    .iter()
-                    .filter_map(|i| {
-                        if let IntervalOwner::Core {
-                            core_id,
-                            status,
-                            thread_id,
-                        } = &i.owner
-                        {
-                            if *core_id != core {
-                                return None;
-                            }
-                            let name = thread_id
-                                .as_ref()
-                                .map(|id| {
-                                    threads
+            let actual: Vec<Value> = b
+                .intervals
+                .iter()
+                .filter_map(|i| {
+                    if let IntervalOwner::Core {
+                        core_id,
+                        status,
+                        thread_id,
+                    } = &i.owner
+                    {
+                        if *core_id != core {
+                            return None;
+                        }
+                        let name = thread_id
+                            .as_ref()
+                            .map(|id| {
+                                threads
                                         [id.strip_prefix("m:t").unwrap().parse::<usize>().unwrap()]
                                         ["id"]
                                         .clone()
-                                })
-                                .unwrap_or(Value::Null);
-                            Some(json!([
-                                i.start,
-                                i.end,
-                                match status {
-                                    CoreStatus::Idle => "idle",
-                                    CoreStatus::Running => "useful",
-                                    CoreStatus::Dispatching => "overhead",
-                                },
-                                name
-                            ]))
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
+                            })
+                            .unwrap_or(Value::Null);
+                        Some(json!([
+                            i.start,
+                            i.end,
+                            match status {
+                                CoreStatus::Idle => "idle",
+                                CoreStatus::Running => "useful",
+                                CoreStatus::Dispatching => "overhead",
+                            },
+                            name
+                        ]))
+                    } else {
+                        None
+                    }
+                })
+                .collect();
             assert_eq!(
                 json!(actual),
                 ledger["intervals"],
@@ -625,11 +626,169 @@ fn generated_ids_causal_predecessors_and_producer_artifact() {
             }
             previous = Some(e["eventId"].clone());
         }
-        batches.push(json!({"workload":v,"events":b.events}));
+        batches.push(
+            json!({"name":format!("namespace-{}",machine.len()),"workload":v,"events":b.events}),
+        );
     }
-    if let Some(path) = std::env::var_os("T03_PRODUCER_JSON") {
-        std::fs::write(path, serde_json::to_vec_pretty(&batches).unwrap()).unwrap();
+    let v = workload(
+        vec![vec![
+            compute("cpu", 3),
+            json!({"blockId":"io","op":"ioWait","duration":{"literal":"1"}}),
+            json!({"blockId":"give","op":"yield"}),
+            end("done"),
+        ]],
+        &[0],
+        1,
+        1,
+        100,
+        Some(2),
+    );
+    batches.push(
+        json!({"name":"all-operations","workload":v,"events":finish(&mut kernel(&v)).events}),
+    );
+    let v = workload(
+        vec![vec![repeat("loop", 2, vec![]), end("done")]],
+        &[0],
+        1,
+        0,
+        1,
+        None,
+    );
+    batches
+        .push(json!({"name":"fatal-budget","workload":v,"events":finish(&mut kernel(&v)).events}));
+    if let Some(path) = std::env::var_os("OS_LAB_KERNEL_EVENTS") {
+        std::fs::write(
+            path,
+            serde_json::to_vec_pretty(&json!({"cases":batches})).unwrap(),
+        )
+        .unwrap();
     }
+}
+
+#[test]
+fn insertion_preflight_rejects_before_operation_event() {
+    for (cost, blocks, quantum, forbidden, slots) in [
+        (1, vec![end("done")], None, "dispatchStarted", 0),
+        (
+            0,
+            vec![compute("cpu", 1), end("done")],
+            None,
+            "computeStarted",
+            0,
+        ),
+        (
+            0,
+            vec![compute("cpu", 2), end("done")],
+            Some(2),
+            "computeStarted",
+            1,
+        ),
+        (
+            0,
+            vec![
+                json!({"blockId":"io","op":"ioWait","duration":{"literal":"1"}}),
+                end("done"),
+            ],
+            None,
+            "ioSubmitted",
+            0,
+        ),
+    ] {
+        let mut k = kernel(&workload(vec![blocks], &[0], 1, cost, 100, quantum));
+        k.insertion = u64::MAX - slots;
+        let b = finish(&mut k);
+        assert_eq!(b.state.error.unwrap().code, ErrorCode::ArithmeticOverflow);
+        assert!(
+            !b.events.iter().any(|e| e["kind"] == forbidden),
+            "{forbidden}"
+        );
+        assert_eq!(k.insertion, u64::MAX - slots);
+    }
+}
+
+#[test]
+fn earliest_deadline_near_u64_limit() {
+    for (arrival, quantum, duration, tick, status, expirations) in [
+        (
+            u64::MAX - 5,
+            u64::MAX,
+            2,
+            u64::MAX - 3,
+            RunStatus::Completed,
+            0,
+        ),
+        (u64::MAX - 5, 2, 10, u64::MAX - 1, RunStatus::Error, 2),
+        (u64::MAX - 2, 2, 2, u64::MAX, RunStatus::Completed, 0),
+    ] {
+        let b = finish(&mut kernel(&workload(
+            vec![vec![compute("cpu", duration), end("done")]],
+            &[arrival],
+            1,
+            0,
+            100,
+            Some(quantum),
+        )));
+        assert_eq!((b.state.tick, b.state.status), (tick, status));
+        assert_eq!(
+            b.events
+                .iter()
+                .filter(|e| e["kind"] == "quantumExpired")
+                .count(),
+            expirations
+        );
+    }
+    // Equality reaches another compute with zero grant at MAX; phase 3 still
+    // expires it before a fresh positive grant makes the real next deadline fail.
+    let b = finish(&mut kernel(&workload(
+        vec![vec![compute("a", 2), compute("b", 1), end("done")]],
+        &[u64::MAX - 2],
+        1,
+        0,
+        100,
+        Some(2),
+    )));
+    assert_eq!(b.state.tick, u64::MAX);
+    assert_eq!(
+        b.events
+            .iter()
+            .filter(|e| e["kind"] == "quantumExpired")
+            .count(),
+        1
+    );
+}
+
+#[test]
+fn stale_tokens_do_not_advance_time_or_mutate_current_occurrence() {
+    let v = workload(
+        vec![vec![compute("cpu", 5), end("done")]],
+        &[0],
+        1,
+        0,
+        100,
+        Some(2),
+    );
+    let mut clean = kernel(&v);
+    let mut injected = kernel(&v);
+    assert_eq!(clean.advance_tick(), injected.advance_tick());
+    let old = injected.pending.peek().unwrap().0;
+    assert_eq!(clean.advance_tick(), injected.advance_tick()); // generation 2 now owns core
+    for kind in [Kind::Compute, Kind::Expire, Kind::Switch] {
+        injected.insertion += 1;
+        injected.pending.push(Reverse(Pending {
+            tick: 3,
+            phase: kind.phase(),
+            sequence: injected.insertion,
+            kind,
+            ..old
+        }));
+    }
+    injected.insertion += 1;
+    injected.pending.push(Reverse(Pending {
+        tick: u64::MAX,
+        sequence: injected.insertion,
+        ..old
+    }));
+    assert_eq!(finish(&mut clean), finish(&mut injected));
 }
 
 #[test]

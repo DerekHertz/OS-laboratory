@@ -464,6 +464,7 @@ impl<P: Policy> Kernel<P> {
                     .tick
                     .checked_add(self.workload.switch_cost)
                     .ok_or(Fault::overflow(thread))?;
+                self.ensure_insertions(u64::from(self.workload.switch_cost > 0), thread)?;
                 self.ready.pop_front();
                 self.set_thread_status(thread, ThreadStatus::Dispatching);
                 self.set_core_status(core, CoreStatus::Dispatching);
@@ -502,14 +503,17 @@ impl<P: Policy> Kernel<P> {
                     let remaining = self.threads[thread]
                         .remaining
                         .unwrap_or_else(|| self.resolve(thread, &operand));
-                    let completion = self
+                    // Only the earliest boundary can execute. Computing an irrelevant
+                    // later deadline would invent overflow for a representable run.
+                    let quantum = self.threads[thread].quantum_left;
+                    let service = quantum.map_or(remaining, |q| q.min(remaining));
+                    let deadline = self
                         .tick
-                        .checked_add(remaining)
+                        .checked_add(service)
                         .ok_or(Fault::overflow(thread))?;
-                    let expiration = self.threads[thread]
-                        .quantum_left
-                        .map(|q| self.tick.checked_add(q).ok_or(Fault::overflow(thread)))
-                        .transpose()?;
+                    let completes = quantum.is_none_or(|q| remaining <= q);
+                    let expires = quantum.is_some_and(|q| q <= remaining);
+                    self.ensure_insertions(u64::from(completes) + u64::from(expires), thread)?;
                     let instruction_generation = self.threads[thread]
                         .instruction_generation
                         .checked_add(1)
@@ -518,9 +522,11 @@ impl<P: Policy> Kernel<P> {
                     self.threads[thread].remaining = Some(remaining);
                     self.threads[thread].service_start = self.tick;
                     self.emit_core("computeStarted", thread, core, true)?;
-                    self.schedule(completion, Kind::Compute, thread, core)?;
-                    if let Some(expiration) = expiration {
-                        self.schedule(expiration, Kind::Expire, thread, core)?;
+                    if completes {
+                        self.schedule(deadline, Kind::Compute, thread, core)?;
+                    }
+                    if expires {
+                        self.schedule(deadline, Kind::Expire, thread, core)?;
                     }
                     return Ok(());
                 }
@@ -532,6 +538,7 @@ impl<P: Policy> Kernel<P> {
                         .tick
                         .checked_add(duration)
                         .ok_or(Fault::overflow(thread))?;
+                    self.ensure_insertions(1, thread)?;
                     self.emit("ioSubmitted", Some(thread), None, true, json!({"duration": duration.to_string(), "completionTick": completion.to_string()}))?;
                     self.schedule(completion, Kind::Io, thread, core)?;
                     self.release(thread, core);
@@ -783,6 +790,12 @@ impl<P: Policy> Kernel<P> {
         } else {
             Ok(())
         }
+    }
+    fn ensure_insertions(&self, count: u64, thread: usize) -> Result<()> {
+        self.insertion
+            .checked_add(count)
+            .map(|_| ())
+            .ok_or(Fault::overflow(thread))
     }
 }
 

@@ -121,8 +121,8 @@ impl Workload {
         let machine_id = id(&machine["machineId"])?;
         id(&o["applicationVersion"])?;
         let cores = machine["cores"]
-            .as_u64()
-            .filter(|n| (1..=64).contains(n))
+            .as_f64()
+            .filter(|n| n.fract() == 0.0 && (1.0..=64.0).contains(n))
             .ok_or(InputError::InvalidCommand)? as usize;
         let switch_cost = unsigned(&machine["switchCost"], false)?;
         let control_budget = unsigned(&machine["controlOperationBudgetPerTick"], true)?;
@@ -497,3 +497,7 @@ fn parse(bytes: &[u8]) -> Result<Value> {
     decoder.end().map_err(|_| InputError::InvalidCommand)?;
     Ok(v)
 }
+
+#[cfg(test)]
+#[path = "input_tests.rs"]
+mod tests;

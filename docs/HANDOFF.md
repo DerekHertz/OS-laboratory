@@ -25,6 +25,10 @@ Remote access blocker (2026-09-13): automatic approval review rejected `git fetc
 
 Usage discipline: no callable tool exposes remaining account quota. Prior 57%-used and 29%-remaining readings were user snapshots from September 11, not current readings. Checkpoint documents/source after bounded units and before lengthy checks; save partial findings rather than losing the review. Do not assume model changes bypass shared limits. Apply the conservative context handoff rule separately.
 
+## T04 start — 2026-09-13
+
+T03 PR #5 merged after two successful exact-head `build-and-test` checks as protected squash commit `1e1681dcf17d84b62499882c8212f92ce3228526`; local main was fast-forwarded cleanly. T04 is now active on `codex/t04-fcfs` in `D:/codex/_projects/OS-laboratory/.verification/worktrees/t04`. Task packet: `docs/tasks/T04.md`. Agent `t04_fcfs` owns the bounded production FCFS paths; root owns this handoff/TODO/routing/task packet. No T05 agent is running. Next gate is author checkpoint, focused independent review, required checks, then protected integration. T05 becomes next after T04 lands; T06 remains blocked on both policies.
+
 ## Final T03 status — 2026-09-13
 
 This section supersedes earlier pending-review status. T03 is independently **ACCEPTED** locally at corrected source `ec2598a`; current branch tip will include the final documentation commit. Kernel review accepted `e269ee1` after 12/12 focused tests. Decoder review found D1, accepted its main correction `a9cf705` after identifying residual D1-R1, and accepted final correction `ec2598a` after the exact malformed non-repeat-body regression passed. Combined result: `docs/reviews/T03-REVIEW-RESULT.md`.

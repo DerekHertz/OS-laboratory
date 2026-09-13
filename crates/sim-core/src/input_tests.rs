@@ -213,3 +213,29 @@ fn resource_limits_exact_depth_blocks_bytes_and_counts() {
     );
     assert_eq!(decode(&v).unwrap_err(), InputError::ResourceLimit);
 }
+
+#[test]
+fn resource_limit_preflight_precedes_unrelated_shape_errors() {
+    let mut oversized_parameters = sample();
+    oversized_parameters["programs"][0]["parameters"] = json!(
+        (0..129)
+            .map(|i| json!({"id":format!("n{i}"),"minimum":"0","default":"0","maximum":"0"}))
+            .collect::<Vec<_>>()
+    );
+    oversized_parameters["machine"]["machineId"] = json!("1invalid");
+    assert_eq!(
+        decode(&oversized_parameters).unwrap_err(),
+        InputError::ResourceLimit
+    );
+
+    // The boundary remains exact: without a resource breach, the malformed ID
+    // continues through ordinary workload validation.
+    let mut at_limit = sample();
+    at_limit["programs"][0]["parameters"] = json!(
+        (0..128)
+            .map(|i| json!({"id":format!("n{i}"),"minimum":"0","default":"0","maximum":"0"}))
+            .collect::<Vec<_>>()
+    );
+    at_limit["machine"]["machineId"] = json!("1invalid");
+    assert_eq!(decode(&at_limit).unwrap_err(), InputError::InvalidCommand);
+}

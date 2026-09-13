@@ -4,6 +4,10 @@ use serde_json::{Map, Value};
 use std::collections::{BTreeMap, BTreeSet};
 
 pub const MAX_BYTES: usize = 1_048_576;
+const MAX_PARAMETERS: usize = 128;
+const MAX_BLOCKS: usize = 10_000;
+const MAX_INSTANCES: usize = 10_000;
+const MAX_REPEAT_DEPTH: usize = 64;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InputError {
@@ -92,6 +96,11 @@ impl Workload {
         self.threads.get(index).map(|t| t.arrival)
     }
     fn from_value(v: Value) -> Result<Self> {
+        // Routing step 8 gives resource limits precedence over ordinary workload
+        // shape errors. Run the bounded whole-input scan before dereferencing any
+        // required workload field; detailed validation below remains authoritative
+        // for all non-resource errors and compatibility ordering.
+        preflight_resources(&v)?;
         let o = object(
             &v,
             &[
@@ -140,8 +149,8 @@ impl Workload {
             }
             _ => return Err(InputError::InvalidCommand),
         };
-        let raw_programs = array(&o["programs"], 1, 10_000)?;
-        let raw_threads = array(&o["threads"], 1, 10_000)?;
+        let raw_programs = array(&o["programs"], 1, MAX_INSTANCES)?;
+        let raw_threads = array(&o["threads"], 1, MAX_INSTANCES)?;
         let mut programs = Vec::new();
         let mut program_ids = BTreeMap::new();
         let mut unsupported_program = false;
@@ -173,7 +182,7 @@ impl Workload {
             let overrides = t["parameters"]
                 .as_object()
                 .ok_or(InputError::InvalidCommand)?;
-            if overrides.len() > 128 {
+            if overrides.len() > MAX_PARAMETERS {
                 return Err(InputError::ResourceLimit);
             }
             let mut parameters: BTreeMap<_, _> = program
@@ -260,7 +269,7 @@ impl Program {
             return Err(InputError::InvalidCommand);
         }
         let mut parameters = BTreeMap::new();
-        for p in array(&o["parameters"], 0, 128)? {
+        for p in array(&o["parameters"], 0, MAX_PARAMETERS)? {
             let p = object(p, &["id", "minimum", "default", "maximum"])?;
             let (min, default, max) = (
                 signed(&p["minimum"])?,
@@ -311,10 +320,10 @@ fn blocks(
     code: &mut Vec<Instruction>,
     ids: &mut BTreeSet<String>,
 ) -> Result<bool> {
-    if depth > 64 {
+    if depth > MAX_REPEAT_DEPTH {
         return Err(InputError::ResourceLimit);
     }
-    let list = array(v, usize::from(depth == 0), 10_000)?;
+    let list = array(v, usize::from(depth == 0), MAX_BLOCKS)?;
     let mut ends = false;
     for b in list {
         if ends {
@@ -324,7 +333,7 @@ fn blocks(
         if !ids.insert(block_id.clone()) {
             return Err(InputError::InvalidCommand);
         }
-        if ids.len() > 10_000 {
+        if ids.len() > MAX_BLOCKS {
             return Err(InputError::ResourceLimit);
         }
         let op = b
@@ -427,6 +436,75 @@ fn array(v: &Value, minimum: usize, maximum: usize) -> Result<&Vec<Value>> {
     }
     Ok(a)
 }
+
+fn preflight_resources(v: &Value) -> Result<()> {
+    let Some(root) = v.as_object() else {
+        return Ok(());
+    };
+
+    if let Some(programs) = root.get("programs") {
+        preflight_array_count(programs, MAX_INSTANCES)?;
+        if let Some(programs) = programs.as_array() {
+            for program in programs {
+                let Some(program) = program.as_object() else {
+                    continue;
+                };
+                if let Some(parameters) = program.get("parameters") {
+                    preflight_array_count(parameters, MAX_PARAMETERS)?;
+                }
+                if let Some(blocks) = program.get("blocks") {
+                    let mut count = 0;
+                    preflight_blocks(blocks, 0, &mut count)?;
+                }
+            }
+        }
+    }
+
+    if let Some(threads) = root.get("threads") {
+        preflight_array_count(threads, MAX_INSTANCES)?;
+        if let Some(threads) = threads.as_array() {
+            for thread in threads {
+                if thread
+                    .as_object()
+                    .and_then(|thread| thread.get("parameters"))
+                    .and_then(Value::as_object)
+                    .is_some_and(|parameters| parameters.len() > MAX_PARAMETERS)
+                {
+                    return Err(InputError::ResourceLimit);
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn preflight_array_count(v: &Value, maximum: usize) -> Result<()> {
+    if v.as_array().is_some_and(|array| array.len() > maximum) {
+        return Err(InputError::ResourceLimit);
+    }
+    Ok(())
+}
+
+fn preflight_blocks(v: &Value, depth: usize, count: &mut usize) -> Result<()> {
+    let Some(blocks) = v.as_array() else {
+        return Ok(());
+    };
+    if depth > MAX_REPEAT_DEPTH || blocks.len() > MAX_BLOCKS {
+        return Err(InputError::ResourceLimit);
+    }
+    *count = count
+        .checked_add(blocks.len())
+        .filter(|count| *count <= MAX_BLOCKS)
+        .ok_or(InputError::ResourceLimit)?;
+    for block in blocks {
+        if let Some(body) = block.as_object().and_then(|block| block.get("body")) {
+            preflight_blocks(body, depth + 1, count)?;
+        }
+    }
+    Ok(())
+}
+
 fn id(v: &Value) -> Result<String> {
     let s = v.as_str().ok_or(InputError::InvalidCommand)?;
     if s.is_empty()

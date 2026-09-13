@@ -1,0 +1,11 @@
+# T03 contract-correction verification
+
+Date: 2026-09-11. Branch: `codex/t03-event-kernel`, prerequisite correction after `1f1adb1`. Environment: Windows, Node 22.20.0, npm 10.9.3. Owner: root; independent proposal audit: `t03_acceptance`.
+
+| Test family | Null hypothesis | Exercised / independent expected result | Actual | Issue response |
+|---|---|---|---|---|
+| Generated-ID schema bounds (`npm run contracts:check`) | A full machine prefix plus generated suffix is rejected, or authored IDs were inadvertently widened. | 10 cases: 128-character machine + 20-digit u64 event ID; long trace endpoints; authored length128/129; event, entity and causal IDs at length160/161. Suffix arithmetic independently gives event length155 and core length136. Valid cases accepted, out-of-bound cases rejected. | PASS: 30 original contract cases and 10 generated-ID checks. Initial new fixture accidentally omitted required errored/censored counts and failed four checks; supplied the contract-required zero counts, then all passed. | Fix schema/projection divergence before kernel integration; do not relax expected bounds. |
+| Regression mutation | Generated-ID checks cannot detect the original defect. | Temporarily restore generated-ID bound from160 to128; expect nonzero exit and long-ID failures; restore corrected schema. | Expected FAIL exit1 with five named generated-ID failures. Restored schema and reran: all30+10 checks PASS. | A surviving mutation would require stronger cases before acceptance. |
+| Projection and formatting | Schema correction breaks TypeScript or checked formatting. | `npm run typecheck`; `npm run format:check`; `git -c safe.directory=D:/codex/_projects/OS-laboratory/.verification/worktrees/t03 diff --check`. Expect success. | PASS (diff only reported a CRLF normalization notice). | Correct and rerun on any later contract change. |
+
+The repeat clarification was independently derived from C09, whose count4 performs four iteration evaluations. Runtime charging, generated-ID production and collision handling require separate kernel tests in T03; these schema tests alone do not establish engine correctness. No released producer/consumer compatibility or native/Wasm execution equivalence is claimed.

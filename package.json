@@ -11,13 +11,14 @@
   "scripts": {
     "dev": "vite apps/web",
     "contracts:check": "node scripts/validate-contracts.mjs",
+    "kernel:check": "node scripts/check-kernel.mjs",
     "build:wasm": "node scripts/build-wasm.mjs",
     "build:web": "vite build apps/web",
     "build": "npm run build:wasm && npm run build:web",
     "typecheck": "tsc --noEmit",
     "format:check": "prettier --check apps scripts tests package.json tsconfig.json playwright.config.ts",
     "test:browser": "playwright test",
-    "check": "npm run format:check && npm run contracts:check && npm run typecheck && cargo fmt --all -- --check && cargo clippy --workspace --all-targets --locked -- -D warnings && cargo test --workspace --locked && cargo build --workspace --release --locked && npm run build && npm run test:browser"
+    "check": "npm run format:check && npm run contracts:check && npm run typecheck && cargo fmt --all -- --check && cargo clippy --workspace --all-targets --locked -- -D warnings && npm run kernel:check && cargo build --workspace --release --locked && npm run build && npm run test:browser"
   },
   "dependencies": {
     "react": "19.2.8",

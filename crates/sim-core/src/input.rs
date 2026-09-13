@@ -498,7 +498,10 @@ fn preflight_blocks(v: &Value, depth: usize, count: &mut usize) -> Result<()> {
         .filter(|count| *count <= MAX_BLOCKS)
         .ok_or(InputError::ResourceLimit)?;
     for block in blocks {
-        if let Some(body) = block.as_object().and_then(|block| block.get("body")) {
+        if let Some(block) = block.as_object()
+            && block.get("op").and_then(Value::as_str) == Some("repeat")
+            && let Some(body) = block.get("body")
+        {
             preflight_blocks(body, depth + 1, count)?;
         }
     }

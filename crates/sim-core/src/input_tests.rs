@@ -238,4 +238,13 @@ fn resource_limit_preflight_precedes_unrelated_shape_errors() {
     );
     at_limit["machine"]["machineId"] = json!("1invalid");
     assert_eq!(decode(&at_limit).unwrap_err(), InputError::InvalidCommand);
+
+    let mut fake_body = sample();
+    fake_body["programs"][0]["blocks"] = json!([
+        {"blockId":"bad","op":"yield","body":
+            std::iter::repeat_n(json!(null), 10_001).collect::<Vec<_>>()},
+        {"blockId":"done","op":"end"}
+    ]);
+    assert!(serde_json::to_vec(&fake_body).unwrap().len() < MAX_BYTES);
+    assert_eq!(decode(&fake_body).unwrap_err(), InputError::InvalidCommand);
 }

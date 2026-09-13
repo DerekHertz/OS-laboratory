@@ -1,0 +1,34 @@
+# T03 kernel independent review
+
+## Verdict
+
+**ACCEPT** candidate `e269ee1` against baseline `e99d65a` for the T03 event-kernel and M1-interpreter scope. I found no contract violation or integration-blocking defect in `crates/sim-core/src/kernel.rs` or `kernel_tests.rs`.
+
+This verdict does not accept a production FCFS or round-robin policy. `TestPolicy` is test-only, and T04/T05 remain required. Decoder/schema compatibility belongs to the separate D-review. Metrics, retention, worker transport, replay, and native/Wasm simulation equivalence also remain outside this kernel verdict.
+
+## Independent semantic review
+
+I reviewed the complete kernel addition and its focused tests against `sched.m1/revision-1`, the relevant execution/source rules in `program-transport.m1/revision-1`, `docs/decisions/t03-kernel.md`, the T03 prerequisite correction, and independently worked cases C01-C10.
+
+| Risk | Independent expectation | Observed implementation/evidence |
+| --- | --- | --- |
+| Tick and phase closure | Live events order by `(tick, phase, insertion_sequence)`; phases 1-3 finish before an ascending-core phase-4 scan fixpoint. Stale entries cannot advance time. | `Pending` carries the exact key; `pop_live` and the same-tick loop discard inapplicable entries; `dispatch` finishes each scan and repeats only while a ready/idle pair remains. The focused phase, scan, and injected-stale-token tests passed. |
+| Lifecycle and ownership | A thread is owned by exactly one queue/core state at stable boundaries; zero-cost releases redispatch in the same phase-4 closure. | Ready removal precedes dispatch ownership, release clears both sides, and every returned boundary is after dispatch closure. The shared invariant checks every focused completed boundary and C01-C10 exact core ledgers. |
+| Control-budget scope and repeat charging | One run-wide count spans threads, phases, and phase-4 rescans; it resets only when simulated time advances. Each repeat iteration, yield, I/O submission, and end costs one unit. | One `controls` field is reset only when the next live event's tick differs. Repeat entry charges iteration one and each `RepeatNext` backedge charges the next iteration; final exit is free. Existing tests cover budget sharing between threads, later-phase suppression, yield/rescan cycles, empty/nested/terminating repeats, and per-tick reset through repeated positive compute. |
+| Source identity and instruction occurrences | Block IDs remain those of immutable source blocks; blocked I/O retains its source; old compute/expiration tokens cannot match a later occurrence of the same repeated block. | The flattened repeat backedge reuses the repeat ID, blocked I/O advances `pc` only on completion, and compute start increments a checked occurrence generation. Existing assertions cover repeat/error/end sources, I/O completion source, repeated compute completion source, and stale tokens after redispatch. |
+| Quantum/completion equality | Completion at the grant boundary executes first; end/block/yield makes expiration stale, while another compute is expired in phase 3. | Compute and expiration are inserted at the same deadline in phase order with the same occurrence token. Completion clears remaining state and drives boundary operations before phase 3; the equality/order test passed. |
+| Checked arithmetic and operation preflight | Required deadlines and counters reject overflow without wrapping or emitting the failing operation; only the earliest service deadline is required. | Tick addition, insertion, dispatch generation, occurrence generation, and canonical sequence use checked arithmetic. Compute preflights all deadline insertions before `computeStarted`; dispatch and I/O preflight required insertions before lifecycle mutation/event emission. MAX-boundary, reserved-fatal-event, preflight, and earliest-deadline tests passed. |
+| Fatal cleanup | Stop at the fault tick, preserve prior termination, close nonzero intervals, clear queue/events, release cores, mark culprit `error` and other unfinished threads `censored`, then emit one inspectable runtime error. | `fail` clears pending/ready state, closes intervals before ownership removal, preserves terminated threads, applies terminal statuses, idles cores, and emits the reserved fatal event. Focused budget, arithmetic, counter, and bad-policy cases passed. |
+| Raw accounting intervals | Half-open thread/core intervals close at each lifecycle transition and at terminal/quiescent boundaries; zero-length intervals are omitted. | Status setters close the prior interval before changing status; release closes core service before clearing ownership; fatal/completion close all remaining intervals. A small independent trace produced the exact nine hand-derived thread interval facts for dispatch, useful service, blocking, ready wait, and resume through tick 6. |
+
+The policy interface rejects a persisted configuration/quantum mismatch at construction and rejects a non-head or absent selection as a terminal internal-engine fault. It intentionally permits only FIFO-head selection; FCFS versus RR behavior is supplied by the persisted quantum, so the interface is an appropriate narrow T03 boundary without claiming T04/T05 completion.
+
+## Exact checks and observations
+
+`cargo test -p sim-core --locked kernel::tests -- --nocapture` (using `C:\Users\Derek\.cargo\bin\cargo.exe`) exited 0: 12 passed, 0 failed, 5 filtered out. This was the only repository test family rerun; no browser, build, decoder, or integration suite was repeated.
+
+`git -c safe.directory=D:/codex/_projects/OS-laboratory/.verification/worktrees/t03 diff --exit-code e269ee1 -- crates/sim-core/src/kernel.rs crates/sim-core/src/kernel_tests.rs crates/sim-core/src/input.rs crates/sim-core/src/lib.rs` exited 0, confirming the reviewed implementation files are unchanged from the author candidate. The accompanying `git diff --check` for this report exited 0 at the partial checkpoint.
+
+I also ran `.verification/review-kernel` once as an external read-only consumer. It exited 101 on my first interval assertion because I compared the vector's emission order, although the contract specifies interval facts and accounting rather than a global interval-vector order. The panic output contained exactly the same nine expected `(thread, status, start, end)` facts in lifecycle-close order. I do not count that command as passing evidence, and it revealed no product defect. I stopped further probing under the bounded-review instruction; the focused repository tests and code inspection supply the verdict above.
+
+Residual evidence limits are finite-case limits: naturally executing counters to `u64::MAX` is infeasible, injected stale/counter tests validate the guarded paths, and production policies will require their own independently reviewed reference runs in T04/T05.

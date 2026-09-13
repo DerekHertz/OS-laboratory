@@ -17,3 +17,5 @@ The user explicitly requested model-appropriate subagents with the primary agent
 ## T03 resumed review — 2026-09-13
 
 The prior implementation review stopped at the shared usage limit without a verdict. The user requested resumption with model-appropriate delegation. `t03_kernel_review` and `t03_input_review` now use fresh GPT-5.6 Sol / xhigh contexts for separate, bounded tier-A reviews of core semantics and decoding/transport compatibility. Each owns only its named report and saves partial coverage before substantial probing; both read the same unchanged author candidate. Root handles review integration, final checks and handoff. Routine fixes will use a bounded coding assignment; undefined semantics or competing derivations require targeted tier-A resolution. Do not infer live account allowance from historical user readings.
+
+The kernel review accepted the candidate. The decoder review found bounded implementation defect D1. `t03_d1_fix` uses GPT-5.6 Luna / high for this tier-B correction because the accepted precedence rule and exact failing input are settled; the original GPT-5.6 Sol / xhigh decoder reviewer retains independent re-review responsibility.

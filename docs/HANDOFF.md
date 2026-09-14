@@ -54,3 +54,13 @@ This checkpoint commit intentionally contains a failing partial draft so it cann
 No agents or task command sessions are live. A host `node` process with start time 2026-09-13 11:51 was observed without command-line attribution under current permissions; it was not assumed to belong to this task and was not stopped. `git worktree list` also shows a detached Codex-owned checkout at `C:/Users/Derek/.codex/worktrees/6c4e/OS-laboratory` on `1e1681d`; no activity was observed or modified there. Root main is clean at `1e1681d`. The T04 worktree will be clean after this explicit incomplete checkpoint commit.
 
 Context discipline: this session began with already-large context, so no replacement author or reviewer was dispatched. Start the next session from this handoff; do not resume automatically here.
+
+## T04 local acceptance — 2026-09-14
+
+This section supersedes the T04 interruption checkpoint above. Work resumed in the existing `D:/codex/_projects/OS-laboratory/.verification/worktrees/t04` worktree from exact checkpoint `a7b9206`. The failing `threadTerminated` assertion was corrected to the T03 contract kind `terminated`, and the focused production-policy suite was expanded to exercise independently worked FCFS cases C01, C03, C05, C06, C07, C08 and C10 through the real kernel. Decision and falsifiable verification records are now present in `docs/decisions/t04-fcfs.md` and `docs/verification/T04.md`.
+
+Author candidate `71604d26fc346e50981506ff05bd54c29742e002` passed `cargo fmt --all -- --check`, `cargo clippy -p sim-core --all-targets --locked -- -D warnings`, `cargo test -p sim-core fcfs --locked` (9/9, 18 filtered), and `git diff --check`. A deliberate `ready.front()` to `ready.back()` mutation made the direct policy test fail with actual `Some(9)` versus expected `Some(4)`; restoration returned the suite to 9/9 passing.
+
+Fresh independent reviewer `t04_review` accepted exact candidate `71604d2` with no findings. Its report is `docs/reviews/T04-REVIEW.md`; the reviewer independently reran the focused suite, Rustfmt, Clippy, ancestry and source-diff checks. No targeted probe was needed. The review is bounded evidence for T04 only and does not claim metrics, native/Wasm equivalence, browser behavior or later tasks.
+
+T04 is locally accepted but not integrated. No fetch, push, PR, remote CI or merge was performed in this resumption. The next gate is protected remote integration of the exact reviewed head after confirming current remote main. T05 becomes the next dependency-ready implementation only after T04 lands; T06 remains blocked on both T04 and T05. Root `main` remains at integrated T03 `1e1681d`. All agents and command sessions are complete.

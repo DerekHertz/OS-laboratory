@@ -1,4 +1,5 @@
 //! Authoritative M1 event kernel and immutable program interpreter.
+pub mod fcfs;
 pub mod input;
 pub mod kernel;
 

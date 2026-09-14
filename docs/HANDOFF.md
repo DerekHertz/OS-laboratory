@@ -25,6 +25,10 @@ Remote access blocker (2026-09-13): automatic approval review rejected `git fetc
 
 Usage discipline: no callable tool exposes remaining account quota. Prior 57%-used and 29%-remaining readings were user snapshots from September 11, not current readings. Checkpoint documents/source after bounded units and before lengthy checks; save partial findings rather than losing the review. Do not assume model changes bypass shared limits. Apply the conservative context handoff rule separately.
 
+## T04 start — 2026-09-13
+
+T03 PR #5 merged after two successful exact-head `build-and-test` checks as protected squash commit `1e1681dcf17d84b62499882c8212f92ce3228526`; local main was fast-forwarded cleanly. T04 is now active on `codex/t04-fcfs` in `D:/codex/_projects/OS-laboratory/.verification/worktrees/t04`. Task packet: `docs/tasks/T04.md`. Agent `t04_fcfs` owns the bounded production FCFS paths; root owns this handoff/TODO/routing/task packet. No T05 agent is running. Next gate is author checkpoint, focused independent review, required checks, then protected integration. T05 becomes next after T04 lands; T06 remains blocked on both policies.
+
 ## Final T03 status — 2026-09-13
 
 This section supersedes earlier pending-review status. T03 is independently **ACCEPTED** locally at corrected source `ec2598a`; current branch tip will include the final documentation commit. Kernel review accepted `e269ee1` after 12/12 focused tests. Decoder review found D1, accepted its main correction `a9cf705` after identifying residual D1-R1, and accepted final correction `ec2598a` after the exact malformed non-repeat-body regression passed. Combined result: `docs/reviews/T03-REVIEW-RESULT.md`.
@@ -34,3 +38,29 @@ Post-fix root checks passed: `npm.cmd run kernel:check` (18 sim-core tests, 1 CL
 Dirty files before the final documentation commit are only orchestrator/reviewer status documents: `IMPLEMENTATION-TODO.md`, `docs/HANDOFF.md`, `docs/reviews/T03-INPUT-REVIEW.md`, `docs/reviews/T03-REVIEW-RESULT.md`, and `docs/verification/T03-integration.md`. All agents are complete and no command/tool session is running. Ignored review/artifact directories remain non-source evidence and no production input depends on them.
 
 T03 is ready for protected remote integration, but remote synchronization is blocked pending explicit trust authorization. Automatic approval review rejected `git fetch origin`; no fetch, push, PR, remote CI, or merge occurred. After authorization: fetch `https://github.com/DerekHertz/OS-laboratory.git`, confirm main still contains T02 and no conflicting changes, push the exact T03 head, open a PR, require protected `build-and-test` on that head, and squash-merge with task ID T03 only after it passes. Then update main and this handoff. T04 FCFS and T05 round-robin become dependency-ready in separate worktrees after T03 integration; T06 remains blocked on both.
+
+## T04 interruption checkpoint — 2026-09-14
+
+This is the authoritative restart section and supersedes stale pre-integration T03 paragraphs above. T03 PR #5 was pushed at exact head `0968321`, passed both protected `build-and-test` runs (1m11s and 1m35s), and squash-merged as `1e1681dcf17d84b62499882c8212f92ce3228526` on 2026-09-13. Root main was fetched and fast-forwarded cleanly to that commit. T03 is complete and integrated.
+
+T04 began from `1e1681d` in worktree `D:/codex/_projects/OS-laboratory/.verification/worktrees/t04`, branch `codex/t04-fcfs`. Packet/setup commit is `f844ea4`. The `t04_fcfs` Luna/medium author was running when the parent turn’s `wait_agent` call was aborted. At the start of this recovery turn, the orchestrator’s live-agent list contained only root; there was no final/failed agent response. This supports a parent/session interruption that ended the subagent, not a Rust compiler crash. No account-limit error was reported for this interruption. Do not infer a more specific cause.
+
+Recovered author files were uncommitted: `crates/sim-core/src/fcfs.rs`, `crates/sim-core/src/fcfs_tests.rs`, and the `pub mod fcfs` addition in `crates/sim-core/src/lib.rs`. The required `docs/decisions/t04-fcfs.md` and author verification record were absent. Root created `docs/verification/T04.md` to record the actual incomplete check.
+
+Exact recovery check: with `C:\Users\Derek\.cargo\bin` prepended to PATH, `cargo test -p sim-core fcfs --locked` exited 101: 3 passed, 1 failed. The failure is at `fcfs_tests.rs:131`, which expects event kind `threadTerminated`; T03 emits contract kind `terminated`. No source fix was applied. Rustfmt, Clippy, negative control, complete reference coverage, independent review, full application checks, remote push/CI, and merge are NOT RUN for T04.
+
+This checkpoint commit intentionally contains a failing partial draft so it cannot be mistaken for an accepted implementation. Next session: read `docs/tasks/T04.md`, inspect this checkpoint diff, fix the event-kind assertion, assess/add applicable C05/C06/C08/C10 coverage (especially delayed arrival/idle cores, stable two-core dispatch, immediate-end phase-4 fixpoint, and no-compute I/O behavior), write `docs/decisions/t04-fcfs.md`, finish falsifiable verification including a meaningful restored negative control, and commit an author candidate. Then assign the fresh Sol/xhigh reviewer in the packet and integrate only after ACCEPT and required checks. T05 remains pending; T06 remains blocked on T04 and T05.
+
+No agents or task command sessions are live. A host `node` process with start time 2026-09-13 11:51 was observed without command-line attribution under current permissions; it was not assumed to belong to this task and was not stopped. `git worktree list` also shows a detached Codex-owned checkout at `C:/Users/Derek/.codex/worktrees/6c4e/OS-laboratory` on `1e1681d`; no activity was observed or modified there. Root main is clean at `1e1681d`. The T04 worktree will be clean after this explicit incomplete checkpoint commit.
+
+Context discipline: this session began with already-large context, so no replacement author or reviewer was dispatched. Start the next session from this handoff; do not resume automatically here.
+
+## T04 local acceptance — 2026-09-14
+
+This section supersedes the T04 interruption checkpoint above. Work resumed in the existing `D:/codex/_projects/OS-laboratory/.verification/worktrees/t04` worktree from exact checkpoint `a7b9206`. The failing `threadTerminated` assertion was corrected to the T03 contract kind `terminated`, and the focused production-policy suite was expanded to exercise independently worked FCFS cases C01, C03, C05, C06, C07, C08 and C10 through the real kernel. Decision and falsifiable verification records are now present in `docs/decisions/t04-fcfs.md` and `docs/verification/T04.md`.
+
+Author candidate `71604d26fc346e50981506ff05bd54c29742e002` passed `cargo fmt --all -- --check`, `cargo clippy -p sim-core --all-targets --locked -- -D warnings`, `cargo test -p sim-core fcfs --locked` (9/9, 18 filtered), and `git diff --check`. A deliberate `ready.front()` to `ready.back()` mutation made the direct policy test fail with actual `Some(9)` versus expected `Some(4)`; restoration returned the suite to 9/9 passing.
+
+Fresh independent reviewer `t04_review` accepted exact candidate `71604d2` with no findings. Its report is `docs/reviews/T04-REVIEW.md`; the reviewer independently reran the focused suite, Rustfmt, Clippy, ancestry and source-diff checks. No targeted probe was needed. The review is bounded evidence for T04 only and does not claim metrics, native/Wasm equivalence, browser behavior or later tasks.
+
+T04 is locally accepted but not integrated. No fetch, push, PR, remote CI or merge was performed in this resumption. The next gate is protected remote integration of the exact reviewed head after confirming current remote main. T05 becomes the next dependency-ready implementation only after T04 lands; T06 remains blocked on both T04 and T05. Root `main` remains at integrated T03 `1e1681d`. All agents and command sessions are complete.

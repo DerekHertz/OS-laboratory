@@ -23,3 +23,7 @@ The kernel review accepted the candidate. The decoder review found bounded imple
 ## T04 routing — 2026-09-13
 
 T03 merged as `1e1681d`. `t04_fcfs` uses GPT-5.6 Luna / medium for the bounded tier-B production FCFS adapter and reference tests against the settled kernel/contract. A fresh GPT-5.6 Sol / xhigh agent performs the required tier-A independent review. Root owns task readiness, combined verification, handoff, and protected integration. T05 follows T04 sequentially because both tasks minimally touch `sim-core/src/lib.rs`; this prevents concurrent ownership of the same path.
+
+## T05 routing — 2026-09-14
+
+T04 merged as `9083514`. The primary orchestrator authors the bounded tier-B production round-robin adapter and focused reference tests using the session's inherited model; no implementation subagent is assigned. A fresh tier-A reviewer remains required after the author candidate is committed. Root owns readiness, verification audit, handoff, and protected integration. T06 remains blocked until T05 is accepted and integrated.

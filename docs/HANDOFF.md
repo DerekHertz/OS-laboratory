@@ -64,3 +64,11 @@ Author candidate `71604d26fc346e50981506ff05bd54c29742e002` passed `cargo fmt --
 Fresh independent reviewer `t04_review` accepted exact candidate `71604d2` with no findings. Its report is `docs/reviews/T04-REVIEW.md`; the reviewer independently reran the focused suite, Rustfmt, Clippy, ancestry and source-diff checks. No targeted probe was needed. The review is bounded evidence for T04 only and does not claim metrics, native/Wasm equivalence, browser behavior or later tasks.
 
 T04 is locally accepted but not integrated. No fetch, push, PR, remote CI or merge was performed in this resumption. The next gate is protected remote integration of the exact reviewed head after confirming current remote main. T05 becomes the next dependency-ready implementation only after T04 lands; T06 remains blocked on both T04 and T05. Root `main` remains at integrated T03 `1e1681d`. All agents and command sessions are complete.
+
+## T05 start — 2026-09-14
+
+This section supersedes the T04 pre-integration status above. T04 PR #6 is integrated as protected squash commit `90835140d92ed271009435f16d088e033c11223c`; local `main`, cached `origin/main`, and `origin/HEAD` all point to that commit. T05 is active on `codex/t05-round-robin` in `D:/codex/_projects/OS-laboratory/.verification/worktrees/t05`, based exactly on `9083514`. Task packet: `docs/tasks/T05.md`.
+
+Root is authoring the bounded production RR policy and focused contract tests; no implementation subagent or concurrent task is running. Owned source paths are `crates/sim-core/src/round_robin.rs`, `crates/sim-core/src/round_robin_tests.rs`, and the minimal `lib.rs` export, with T05 decision/verification records and root coordination documents. The contract is `sched.m1/revision-1`, especially C02/C04 and applicable multicore, yield, blocked-state, switch-cost, and determinism invariants. T03 remains authoritative for quantum mechanics and event ordering; T05 must not change the kernel.
+
+Next gates: finish and checkpoint the author candidate, run the focused checks and restored negative control, obtain fresh independent tier-A review, then run protected integration. T06 remains blocked on T05. No push, PR, CI, or merge has yet occurred for T05.

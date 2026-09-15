@@ -2,6 +2,7 @@
 pub mod fcfs;
 pub mod input;
 pub mod kernel;
+pub mod round_robin;
 
 /// Adds unsigned 32-bit operands modulo 2^32 for the infrastructure smoke test.
 pub fn build_probe(left: u32, right: u32) -> u32 {

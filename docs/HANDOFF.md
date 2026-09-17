@@ -64,3 +64,25 @@ Author candidate `71604d26fc346e50981506ff05bd54c29742e002` passed `cargo fmt --
 Fresh independent reviewer `t04_review` accepted exact candidate `71604d2` with no findings. Its report is `docs/reviews/T04-REVIEW.md`; the reviewer independently reran the focused suite, Rustfmt, Clippy, ancestry and source-diff checks. No targeted probe was needed. The review is bounded evidence for T04 only and does not claim metrics, native/Wasm equivalence, browser behavior or later tasks.
 
 T04 is locally accepted but not integrated. No fetch, push, PR, remote CI or merge was performed in this resumption. The next gate is protected remote integration of the exact reviewed head after confirming current remote main. T05 becomes the next dependency-ready implementation only after T04 lands; T06 remains blocked on both T04 and T05. Root `main` remains at integrated T03 `1e1681d`. All agents and command sessions are complete.
+
+## T05 start — 2026-09-14
+
+This section supersedes the T04 pre-integration status above. T04 PR #6 is integrated as protected squash commit `90835140d92ed271009435f16d088e033c11223c`; local `main`, cached `origin/main`, and `origin/HEAD` all point to that commit. T05 is active on `codex/t05-round-robin` in `D:/codex/_projects/OS-laboratory/.verification/worktrees/t05`, based exactly on `9083514`. Task packet: `docs/tasks/T05.md`.
+
+Root is authoring the bounded production RR policy and focused contract tests; no implementation subagent or concurrent task is running. Owned source paths are `crates/sim-core/src/round_robin.rs`, `crates/sim-core/src/round_robin_tests.rs`, and the minimal `lib.rs` export, with T05 decision/verification records and root coordination documents. The contract is `sched.m1/revision-1`, especially C02/C04 and applicable multicore, yield, blocked-state, switch-cost, and determinism invariants. T03 remains authoritative for quantum mechanics and event ordering; T05 must not change the kernel.
+
+Next gates: finish and checkpoint the author candidate, run the focused checks and restored negative control, obtain fresh independent tier-A review, then run protected integration. T06 remains blocked on T05. No push, PR, CI, or merge has yet occurred for T05.
+
+## T05 author candidate — 2026-09-14
+
+T05 authoring is complete at exact source candidate `ba8fa68` on `codex/t05-round-robin`, based on setup/task-packet commit `091de7f` and integrated T04 `9083514`. The candidate adds `RoundRobinPolicy` with an exact `NonZeroU64` quantum, FIFO-head selection, minimal module export, eight focused production-policy tests, the design decision, and falsifiable verification evidence. It does not modify the T03 kernel, schemas, metrics, adapters, or UI.
+
+The focused suite exercises C02 completion/quantum equality and repeat determinism, C04 I/O-wakeup-before-expiration order, yield and block grant reset, nonzero switch overhead, stable two-core rotation, and FCFS/different-quantum rejection. Final author checks passed: `cargo fmt --all -- --check`; `cargo clippy -p sim-core --all-targets --locked -- -D warnings`; `cargo test -p sim-core round_robin --locked` (8 T05 tests plus 1 pre-existing name match passed; 26 filtered); and `git diff --check`. The restored negative control changed the reported quantum from 3 to 2 and made the targeted policy test fail with exit 1 and actual `Some(2)` versus expected `Some(3)`; restoration returned the full focused suite to passing. Exact evidence: `docs/verification/T05.md`.
+
+Independent review is NOT RUN. The next bounded unit is a fresh tier-A semantic review of exact candidate `ba8fa68`, owning only `docs/reviews/T05-REVIEW.md` under `docs/tasks/T05.md`. Resolve and re-review any finding; only an ACCEPT verdict permits protected push/PR/CI/squash integration. T06 remains blocked until T05 lands. No agent or command session is running, no T05 remote action has occurred, and after this handoff update the worktree should be clean.
+
+## T05 local acceptance — 2026-09-17
+
+This section supersedes the pending-review paragraph above. Fresh independent review **ACCEPTED** exact author candidate `ba8fa68cef0738535abe7ef4b3f4e43740620df2` with no findings. The review is `docs/reviews/T05-REVIEW.md`; it independently checked the policy seam, C02/C04, yield/block grant reset, switch-overhead separation, stable multicore rotation, persisted-policy mismatch, scope, and falsifiable evidence. In an isolated archive of the exact candidate, Rustfmt, focused Clippy, the focused test filter (9 passed, including 8 T05 tests), diff-tree whitespace, and T04 ancestry all passed. No targeted probe was needed.
+
+T05 is locally accepted. The next gate is protected remote integration of the accepted branch head after committing this review/status record, confirming current `origin/main`, pushing the exact head, opening a PR, and requiring `build-and-test` on that head before squash merge. T06 remains blocked until T05 lands. Native/Wasm execution equivalence, browser behavior, metrics, and retention are not claimed by the bounded T05 verdict.
